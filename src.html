@@ -466,7 +466,8 @@ const Race = {
     if (tail > maxTail) for (let k = 1; k < gaps.length; k++) gaps[k] *= maxTail / tail;
     const times = []; let acc = T1; times[order[0]] = T1;
     for (let k = 1; k < N; k++) { acc += gaps[k - 1]; times[order[k]] = acc; }
-    const kinds = shuffle([...Array(ANIMALS.length).keys()]);
+    // 8명까지는 선택 화면에 서 있는 동물 순서 그대로(1번=병아리, 2번=판다…), 그 이상은 무작위
+    const kinds = N <= 8 ? [...Array(ANIMALS.length).keys()] : shuffle([...Array(ANIMALS.length).keys()]);
     // 역전 주자: 우승자일 수도, 아닐 수도 있게 섞어서 정함
     const cb = new Set(); if (rnd() < 0.6) cb.add(order[0]);
     for (const i of shuffle([...Array(N).keys()]).slice(0, Math.min(2, N - 1))) if (rnd() < 0.6) cb.add(i);
