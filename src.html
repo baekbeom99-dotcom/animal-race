@@ -925,7 +925,7 @@ const Marble = {
       ell(X(f.px), Y(f.py), 7 * sc, 7 * sc, '#fff', '#b9365c');
     }
 
-    const fs = clamp(12 * sc, 10, 18);
+    const fs = clamp(24 * sc, 20, 36); // 구슬 이름 글자 크기 (예전의 두 배)
     for (const m of this.ms) {
       if (m.done) continue; const x = X(m.x), y = Y(m.y); if (y < -30 || y > H + 30) continue;
       drawMarble(x, y, m.r * sc, m.col);
@@ -933,7 +933,7 @@ const Marble = {
     g.textAlign = 'center';
     for (const m of this.ms) {
       if (m.done) continue; const x = X(m.x), y = Y(m.y); if (y < -30 || y > H + 30) continue;
-      outlined(m.name.length > 6 ? m.name.slice(0, 6) + '…' : m.name, x, y - m.r * sc - 4, fs, '#24488e', '#fff', 'Jua', 4);
+      outlined(m.name.length > 6 ? m.name.slice(0, 6) + '…' : m.name, x, y - m.r * sc - 5, fs, '#24488e', '#fff', 'Jua', 6);
     }
     // 양옆 패널
     if (L.wide) { this.drawMini(L); this.drawRank(L); }
