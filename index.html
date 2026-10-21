@@ -1,8 +1,8 @@
-<!doctype html>
-<html lang="ko">
+﻿<!doctype html>
+<html lang=ko>
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset=utf-8>
+<meta name=viewport content=width=device-width, initial-scale=1, viewport-fit=cover>
 </head>
 <body>
 <title>동물 달리기 추첨</title>
@@ -152,6 +152,7 @@ textarea{width:100%;box-sizing:border-box;min-height:110px;resize:vertical;font-
   </main>
 </div>
 
+<script src="characters.js"></script>
 <script>
 (() => {
 'use strict';
@@ -229,129 +230,9 @@ const Snd = {
   }
 };
 
-/* ---------- 동물 그리기 ---------- */
-const ANIMALS = [
-  { id: 'chick', c: '#ffd84a', o: '#d9981a' }, { id: 'panda', c: '#ffffff', o: '#4a4a52' },
-  { id: 'puppy', c: '#fffaf0', o: '#8a5a3a' }, { id: 'bunny', c: '#f7f2ff', o: '#9a7fb0' },
-  { id: 'cat', c: '#ffb35a', o: '#c06a20' }, { id: 'bear', c: '#b8804e', o: '#6a4220' },
-  { id: 'pig', c: '#ffb9cb', o: '#d06a8a' }, { id: 'frog', c: '#86d860', o: '#3a8a2a' },
-  { id: 'monkey', c: '#b0703e', o: '#5a3416' }, { id: 'koala', c: '#bcc0cc', o: '#636778' },
-  { id: 'fox', c: '#ff8a3a', o: '#b0501a' }, { id: 'tiger', c: '#ffb02e', o: '#a86410' }
-];
-const BALLOON = ['#ff7a2e', '#5cb82e', '#2e8ef0', '#a45ce0', '#ff5c8a', '#e83a3a', '#19b5a5', '#f2b90c'];
-
-function ell(x, y, rx, ry, fill, stroke, rot = 0) {
-  g.beginPath(); g.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), rot, 0, Math.PI * 2);
-  if (fill) { g.fillStyle = fill; g.fill(); }
-  if (stroke) { g.strokeStyle = stroke; g.stroke(); }
-}
-function tri(ax, ay, bx, by, cx, cy, fill, stroke) {
-  g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.lineTo(cx, cy); g.closePath();
-  if (fill) { g.fillStyle = fill; g.fill(); } if (stroke) { g.strokeStyle = stroke; g.stroke(); }
-}
-function eyes(ex, ey, er, mood, white) {
-  for (const sx of [-1, 1]) {
-    const x = ex * sx;
-    if (mood === 'sleep') { g.beginPath(); g.arc(x, ey - er * 0.2, er * 0.9, 0.15 * Math.PI, 0.85 * Math.PI); g.strokeStyle = '#222'; g.lineWidth = er * 0.32; g.stroke(); continue; }
-    if (mood === 'happy') { g.beginPath(); g.arc(x, ey + er * 0.4, er * 0.85, 1.15 * Math.PI, 1.85 * Math.PI); g.strokeStyle = '#222'; g.lineWidth = er * 0.34; g.stroke(); continue; }
-    if (mood === 'dizzy') { g.strokeStyle = '#222'; g.lineWidth = er * 0.3; g.beginPath(); g.moveTo(x - er * 0.7, ey - er * 0.7); g.lineTo(x + er * 0.7, ey + er * 0.7); g.moveTo(x + er * 0.7, ey - er * 0.7); g.lineTo(x - er * 0.7, ey + er * 0.7); g.stroke(); continue; }
-    if (white) ell(x, ey, er * 1.2, er * 1.35, '#fff');
-    ell(x, ey, er, er * 1.18, '#1d1d24');
-    ell(x - er * 0.32, ey - er * 0.42, er * 0.42, er * 0.42, '#fff');
-    ell(x + er * 0.32, ey + er * 0.38, er * 0.18, er * 0.18, '#fff');
-  }
-}
-// x,y = 발 위치. s = 키. st = {phase, state}
-function drawAnimal(k, x, y, s, st = {}) {
-  const A = ANIMALS[k], id = A.id, ph = st.phase || 0, state = st.state || 'idle';
-  const running = state === 'run' || state === 'boost';
-  let bob = 0, lift = 0, arm = 0, rot = 0;
-  if (running) { bob = Math.abs(Math.sin(ph)) * s * 0.07; lift = Math.sin(ph); arm = Math.sin(ph); }
-  else if (state === 'happy') bob = Math.abs(Math.sin(ph * 0.5)) * s * 0.2;
-  else if (state === 'idle') bob = Math.abs(Math.sin(ph * 0.35)) * s * 0.03;
-  else if (state === 'trip') rot = 0.55 + Math.sin(ph * 0.4) * 0.06;
-  g.save(); g.translate(x, y);
-  ell(0, 0, s * 0.27, s * 0.07, 'rgba(60,30,10,.2)');
-  g.rotate(rot); g.translate(0, -bob);
-  const lw = Math.max(1, s * 0.026); g.lineWidth = lw; g.lineJoin = 'round'; g.lineCap = 'round';
-  const O = A.o, C = A.c;
-  const limb = id === 'panda' ? '#2a2a30' : id === 'chick' ? '#ff9a2a' : C;
-  // 발
-  ell(-s * 0.1, -s * 0.05 - (lift > 0 ? lift * s * 0.07 : 0), s * 0.075, s * 0.05, limb, O);
-  ell(s * 0.1, -s * 0.05 - (lift < 0 ? -lift * s * 0.07 : 0), s * 0.075, s * 0.05, limb, O);
-  // 팔
-  if (state === 'happy') { ell(-s * 0.21, -s * 0.36, s * 0.05, s * 0.09, limb, O, 0.5); ell(s * 0.21, -s * 0.36, s * 0.05, s * 0.09, limb, O, -0.5); }
-  else { ell(-s * 0.19, -s * 0.22 + arm * s * 0.04, s * 0.055, s * 0.08, limb, O, 0.3); ell(s * 0.19, -s * 0.22 - arm * s * 0.04, s * 0.055, s * 0.08, limb, O, -0.3); }
-  // 몸
-  ell(0, -s * 0.2, s * 0.18, s * 0.16, id === 'panda' ? '#2a2a30' : C, O);
-  if (id !== 'panda' && id !== 'chick') ell(0, -s * 0.18, s * 0.11, s * 0.1, 'rgba(255,255,255,.55)');
-  // 머리
-  const hy = -s * 0.58, R = s * 0.34;
-  if (id === 'panda') { ell(-R * 0.72, hy - R * 0.72, R * 0.3, R * 0.3, '#2a2a30', O); ell(R * 0.72, hy - R * 0.72, R * 0.3, R * 0.3, '#2a2a30', O); }
-  if (id === 'bear' || id === 'tiger') { for (const sx of [-1, 1]) { ell(sx * R * 0.74, hy - R * 0.72, R * 0.28, R * 0.28, C, O); ell(sx * R * 0.74, hy - R * 0.72, R * 0.15, R * 0.15, id === 'bear' ? '#e8c39a' : '#fff1d6'); } }
-  if (id === 'bunny') { for (const sx of [-1, 1]) { ell(sx * R * 0.38, hy - R * 1.25, R * 0.22, R * 0.62, C, O, sx * 0.12); ell(sx * R * 0.38, hy - R * 1.22, R * 0.11, R * 0.45, '#ffc2d6', null, sx * 0.12); } }
-  if (id === 'cat' || id === 'fox') { for (const sx of [-1, 1]) { tri(sx * R * 0.25, hy - R * 0.85, sx * R * 0.92, hy - R * 0.45, sx * R * 0.8, hy - R * 1.25, C, O); tri(sx * R * 0.42, hy - R * 0.8, sx * R * 0.8, hy - R * 0.58, sx * R * 0.74, hy - R * 1.05, id === 'fox' ? '#4a2a1a' : '#ffc2d6'); } }
-  if (id === 'pig') { for (const sx of [-1, 1]) tri(sx * R * 0.3, hy - R * 0.85, sx * R * 0.9, hy - R * 0.55, sx * R * 0.85, hy - R * 1.1, '#ff9ab4', O); }
-  if (id === 'koala') { for (const sx of [-1, 1]) { ell(sx * R * 0.9, hy - R * 0.45, R * 0.42, R * 0.42, C, O); ell(sx * R * 0.9, hy - R * 0.45, R * 0.24, R * 0.24, '#f4f4f8'); } }
-  if (id === 'monkey') { for (const sx of [-1, 1]) { ell(sx * R * 0.98, hy + R * 0.05, R * 0.28, R * 0.28, C, O); ell(sx * R * 0.98, hy + R * 0.05, R * 0.15, R * 0.15, '#f6cfa4'); } }
-  if (id === 'puppy') { ell(-R * 0.86, hy + R * 0.02, R * 0.26, R * 0.5, '#a8683a', O, 0.35); ell(R * 0.86, hy + R * 0.02, R * 0.26, R * 0.5, '#a8683a', O, -0.35); }
-  if (id === 'frog') { for (const sx of [-1, 1]) ell(sx * R * 0.45, hy - R * 0.72, R * 0.33, R * 0.33, C, O); }
-  ell(0, hy, R * (id === 'frog' ? 1.08 : 1), R * (id === 'frog' ? 0.88 : 1), C, O);
-  if (id === 'chick') { g.beginPath(); g.moveTo(0, hy - R); g.quadraticCurveTo(-R * 0.15, hy - R * 1.35, -R * 0.3, hy - R * 1.2); g.moveTo(0, hy - R); g.quadraticCurveTo(R * 0.15, hy - R * 1.45, R * 0.25, hy - R * 1.3); g.strokeStyle = O; g.lineWidth = lw * 1.4; g.stroke(); g.lineWidth = lw; }
-  // 얼굴 무늬
-  g.save(); g.beginPath(); g.ellipse(0, hy, R * (id === 'frog' ? 1.08 : 1), R * (id === 'frog' ? 0.88 : 1), 0, 0, Math.PI * 2); g.clip();
-  if (id === 'fox') ell(0, hy + R * 0.55, R * 0.95, R * 0.55, '#fff6ea');
-  if (id === 'monkey') { ell(-R * 0.3, hy - R * 0.02, R * 0.38, R * 0.4, '#f6cfa4'); ell(R * 0.3, hy - R * 0.02, R * 0.38, R * 0.4, '#f6cfa4'); ell(0, hy + R * 0.4, R * 0.62, R * 0.4, '#f6cfa4'); }
-  if (id === 'tiger') { g.strokeStyle = '#5a3008'; g.lineWidth = lw * 1.6; for (const dx of [-0.22, 0, 0.22]) { g.beginPath(); g.moveTo(dx * R, hy - R); g.lineTo(dx * R * 0.8, hy - R * 0.66); g.stroke(); } for (const sx of [-1, 1]) { g.beginPath(); g.moveTo(sx * R, hy - R * 0.05); g.lineTo(sx * R * 0.78, hy); g.moveTo(sx * R, hy + R * 0.18); g.lineTo(sx * R * 0.8, hy + R * 0.2); g.stroke(); } g.lineWidth = lw; ell(0, hy + R * 0.42, R * 0.42, R * 0.28, '#fff6ea'); }
-  if (id === 'bear') ell(0, hy + R * 0.38, R * 0.36, R * 0.26, '#e8c39a');
-  if (id === 'puppy') ell(R * 0.38, hy + R * 0.02, R * 0.3, R * 0.32, '#c58a52');
-  g.restore();
-  const mood = state === 'sleep' ? 'sleep' : state === 'happy' ? 'happy' : state === 'trip' ? 'dizzy' : 'n';
-  // 눈
-  if (id === 'panda') { ell(-R * 0.38, hy + R * 0.08, R * 0.25, R * 0.32, '#2a2a30', null, 0.5); ell(R * 0.38, hy + R * 0.08, R * 0.25, R * 0.32, '#2a2a30', null, -0.5); }
-  if (id === 'frog') eyes(R * 0.45, hy - R * 0.72, R * 0.16, mood, false);
-  else if (id === 'panda') eyes(R * 0.38, hy + R * 0.06, R * 0.13, mood, true);
-  else eyes(R * 0.38, hy + R * 0.04, R * 0.16, mood, false);
-  // 볼
-  ell(-R * 0.64, hy + R * 0.36, R * 0.16, R * 0.09, 'rgba(255,100,130,.5)');
-  ell(R * 0.64, hy + R * 0.36, R * 0.16, R * 0.09, 'rgba(255,100,130,.5)');
-  // 코·입
-  g.strokeStyle = '#3a2216'; g.lineWidth = lw;
-  if (id === 'chick') { tri(-R * 0.18, hy + R * 0.3, R * 0.18, hy + R * 0.3, 0, hy + R * 0.52, '#ff8a1a', '#c0600a'); tri(-R * 0.18, hy + R * 0.3, R * 0.18, hy + R * 0.3, 0, hy + R * 0.18, '#ffa640', '#c0600a'); }
-  else if (id === 'pig') { ell(0, hy + R * 0.36, R * 0.3, R * 0.21, '#ff9ab4', O); ell(-R * 0.1, hy + R * 0.36, R * 0.05, R * 0.08, '#b0506a'); ell(R * 0.1, hy + R * 0.36, R * 0.05, R * 0.08, '#b0506a'); }
-  else if (id === 'koala') ell(0, hy + R * 0.3, R * 0.17, R * 0.24, '#3a3a44');
-  else if (id === 'frog') { g.beginPath(); g.arc(0, hy + R * 0.05, R * 0.55, 0.2 * Math.PI, 0.8 * Math.PI); g.stroke(); }
-  else {
-    const nose = id === 'cat' || id === 'tiger' || id === 'bunny' ? '#ff8aa8' : '#2a2a30';
-    ell(0, hy + R * 0.3, R * 0.09, R * 0.065, nose);
-    g.beginPath(); g.arc(-R * 0.09, hy + R * 0.36, R * 0.09, 0, Math.PI); g.arc(R * 0.09, hy + R * 0.36, R * 0.09, 0, Math.PI); g.stroke();
-    if (id === 'cat' || id === 'tiger') { g.beginPath(); for (const sx of [-1, 1]) { g.moveTo(sx * R * 0.55, hy + R * 0.28); g.lineTo(sx * R * 0.95, hy + R * 0.2); g.moveTo(sx * R * 0.55, hy + R * 0.38); g.lineTo(sx * R * 0.95, hy + R * 0.42); } g.stroke(); }
-    if (id === 'bunny') { g.fillStyle = '#fff'; g.fillRect(-R * 0.07, hy + R * 0.44, R * 0.14, R * 0.12); g.strokeRect(-R * 0.07, hy + R * 0.44, R * 0.14, R * 0.12); }
-  }
-  if (state === 'happy' || state === 'boost') { g.beginPath(); g.arc(0, hy + R * 0.48, R * 0.14, 0, Math.PI); g.fillStyle = '#e8506a'; g.fill(); }
-  g.restore();
-  // 효과
-  const top = y - s * 0.98 - bob;
-  if (state === 'sleep') { g.fillStyle = '#3f6fd8'; g.font = `${s * 0.22}px Jua, sans-serif`; const z = (ph * 0.2) % 1; g.globalAlpha = 1 - z; g.fillText('Z', x + s * 0.3, top - z * s * 0.3); g.globalAlpha = 1; g.font = `${s * 0.15}px Jua, sans-serif`; g.fillText('z', x + s * 0.2, top + s * 0.12); }
-  if (state === 'trip') { for (let i = 0; i < 3; i++) { const a = ph * 0.6 + i * 2.1; star(x + Math.cos(a) * s * 0.3, top + s * 0.05 + Math.sin(a) * s * 0.08, s * 0.06, '#ffd21a'); } }
-  if (state === 'boost') { g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = Math.max(2, s * 0.03); for (let i = -2; i <= 2; i++) { const lx = x + i * s * 0.11, l = s * (0.25 + ((ph * 0.7 + i * 1.3) % 1) * 0.3); g.beginPath(); g.moveTo(lx, top - s * 0.05); g.lineTo(lx, top - s * 0.05 - l); g.stroke(); } }
-}
-function star(x, y, r, col) {
-  g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rad = i % 2 ? r * 0.45 : r; g.lineTo(x + Math.cos(a) * rad, y + Math.sin(a) * rad); }
-  g.closePath(); g.fillStyle = col; g.fill(); g.strokeStyle = '#c08a00'; g.lineWidth = Math.max(1, r * 0.2); g.stroke();
-}
-function balloon(x, y, r, col, label) {
-  g.strokeStyle = 'rgba(80,80,80,.7)'; g.lineWidth = Math.max(1, r * 0.08);
-  g.beginPath(); g.moveTo(x, y + r * 1.15); g.quadraticCurveTo(x + r * 0.3, y + r * 1.6, x, y + r * 2.1); g.stroke();
-  ell(x, y, r, r * 1.15, col, 'rgba(0,0,0,.25)');
-  tri(x - r * 0.18, y + r * 1.25, x + r * 0.18, y + r * 1.25, x, y + r * 1.08, col);
-  ell(x - r * 0.38, y - r * 0.45, r * 0.22, r * 0.32, 'rgba(255,255,255,.55)', null, 0.5);
-  outlined(label, x, y + r * 0.42, r * 1.25, '#fff', 'rgba(0,0,0,.25)', 'Jua', r * 0.18);
-}
-function outlined(txt, x, y, size, fill, stroke, font = 'Jua', lw) {
-  g.font = `${size}px ${font}, 'Malgun Gothic', sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-  g.lineJoin = 'round'; g.lineWidth = lw || size * 0.2; g.strokeStyle = stroke; g.strokeText(txt, x, y); g.fillStyle = fill; g.fillText(txt, x, y);
-}
+/* ---------- 캐릭터 (디자인 코드는 characters.js) ---------- */
+const { ANIMALS, BALLOON, ell, tri, star, balloon, outlined, drawAnimal, marbleCol, drawMarble } = window.Chars;
+Chars.setContext(g);
 function nameTag(txt, x, y, maxW, size) {
   g.font = `${size}px Jua, 'Malgun Gothic', sans-serif`;
   let t = txt, w = g.measureText(t).width;
@@ -364,8 +245,8 @@ function nameTag(txt, x, y, maxW, size) {
 }
 function sprite(drawFn, size = 180) {
   const c = document.createElement('canvas'); c.width = c.height = size;
-  const old = g; const gc = c.getContext('2d');
-  g = gc; drawFn(size); g = old; return c.toDataURL();
+  const old = Chars.getContext(); Chars.setContext(c.getContext('2d'));
+  drawFn(size); Chars.setContext(old); return c.toDataURL();
 }
 
 /* ---------- 배경 장면 (언덕) ---------- */
@@ -613,14 +494,6 @@ function animalImg(k) { return animalCache[k] || (animalCache[k] = sprite(sz => 
 /* ---------- 마블 룰렛 ---------- */
 const MW = 600, MG = 1300, MH = 1 / 240;
 function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-function marbleCol(i, n) { const h = Math.round((i * 360 / Math.max(n, 1) + (i % 2) * 180 * 0.15) % 360); return { c: `hsl(${h},85%,58%)`, d: `hsl(${h},75%,32%)`, l: `hsl(${h},100%,88%)` }; }
-function drawMarble(x, y, r, col) {
-  const gr = g.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
-  gr.addColorStop(0, col.l); gr.addColorStop(0.35, col.c); gr.addColorStop(1, col.d);
-  g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = gr; g.fill();
-  g.lineWidth = Math.max(1, r * 0.08); g.strokeStyle = 'rgba(0,0,0,.25)'; g.stroke();
-  ell(x - r * 0.35, y - r * 0.42, r * 0.28, r * 0.18, 'rgba(255,255,255,.85)', null, -0.6);
-}
 const Marble = {
   slideCut: 140, // 마지막 미끄럼틀이 가운데보다 얼마나 앞에서 끊기는지 (굴러 나간 구슬이 x≈300에 떨어지도록 실측해 정함)
   phase: 'idle', ms: [], segs: [], pegs: [], spins: [], labels: [], cam: 0, slow: 1, acc: 0, simT: 0, order: [], gateOpen: false, doneT: 0,
