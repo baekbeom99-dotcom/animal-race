@@ -82,6 +82,21 @@ textarea{width:100%;box-sizing:border-box;min-height:110px;resize:vertical;font-
 .ranks .rk{font-family:var(--dfont);color:var(--pink);min-width:26px;text-align:right;font-variant-numeric:tabular-nums}
 .ranks .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.note{font-size:15px;color:#e8506a;margin:10px 0 0}
+.poke-toggle{position:absolute;top:10px;right:16px;z-index:6;display:inline-flex;align-items:center;gap:8px;font-size:20px;padding:8px 10px 8px 10px;border-radius:999px;border:3px solid #cfe6fb;background:#fff;color:var(--ink);box-shadow:0 3px 0 rgba(36,72,142,.15)}
+.poke-toggle svg{width:32px;height:32px;flex:none}
+.poke-toggle .onoff{font-family:var(--dfont);font-size:16px;min-width:44px;text-align:center;padding:3px 8px;border-radius:999px;background:#c9d3e3;color:#fff}
+.poke-toggle[aria-pressed="true"] .onoff{background:#e8343c}
+.poke-toggle[aria-pressed="true"]{background:#fff0f1;border-color:#e8343c;color:#c2242c;box-shadow:0 2px 0 #c2242c}
+.poke-toggle[aria-pressed="false"] svg{filter:grayscale(.6);opacity:.75}
+.poke-toggle:disabled{opacity:.5;cursor:default}
+body.race-tab #setup{padding-top:72px}
+#pokeLicense{position:absolute;left:0;right:0;bottom:0;z-index:5;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px 10px;padding:6px 16px calc(6px + env(safe-area-inset-bottom, 0px));background:rgba(255,255,255,.92);border-top:2px solid var(--pinkline);font-family:system-ui,'Malgun Gothic',sans-serif;font-size:13px;color:#3b4a6b;line-height:1.4}
+#pokeLicense a{color:#2468c8}
+#pokeLicense button{font:inherit;border:1px solid #cfe6fb;background:#fff;border-radius:8px;padding:1px 8px;color:#3b4a6b}
+#creditList{flex-basis:100%;text-align:center;font-size:12px;color:#5a6ea8}
+body.poke-on .overlay{padding-bottom:64px}
+body.poke-on #hudBtns{bottom:52px}
 @media (max-width:560px){.pill{font-size:24px;padding:8px 30px 10px}.guide{font-size:17px}.logo span{display:none}}
 @media (prefers-reduced-motion:reduce){#cd.pop,#banner.pop,.win img{animation:none}}
 </style>
@@ -122,6 +137,7 @@ textarea{width:100%;box-sizing:border-box;min-height:110px;resize:vertical;font-
           </div>
           <span class="count" id="count"></span>
         </div>
+        <p class="note" id="charNote" hidden></p>
         <p class="err" id="err" hidden></p>
       </div>
       <button class="pill" id="goBtn">달리기</button>
@@ -142,10 +158,30 @@ textarea{width:100%;box-sizing:border-box;min-height:110px;resize:vertical;font-
         <button class="pill white" id="homeBtn">이름 바꾸기</button>
       </div>
     </section>
+
+    <button id="pokeToggle" class="poke-toggle" aria-pressed="false" hidden>
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <circle cx="12" cy="12" r="10.5" fill="#fff" stroke="#222" stroke-width="1.6"/>
+        <path d="M1.5 12a10.5 10.5 0 0 1 21 0z" fill="#e8343c" stroke="#222" stroke-width="1.6"/>
+        <path d="M1.5 12h21" stroke="#222" stroke-width="1.8"/>
+        <circle cx="12" cy="12" r="3.6" fill="#fff" stroke="#222" stroke-width="1.6"/>
+        <circle cx="12" cy="12" r="1.5" fill="#fff" stroke="#9aa" stroke-width=".8"/>
+      </svg>
+      <span>포켓몬 모드</span>
+      <span class="onoff" id="pokeOnOff">OFF</span>
+    </button>
+
+    <footer id="pokeLicense" hidden>
+      <span>포켓몬 스프라이트: <a href="https://sprites.pmdcollab.org/" target="_blank" rel="noopener">PMD Sprite Repository (SpriteCollab)</a></span>
+      <span>라이선스: <a href="https://creativecommons.org/licenses/by-nc/4.0/deed.ko" target="_blank" rel="noopener">CC BY-NC 4.0</a> · 비영리 교육용</span>
+      <button id="creditBtn" aria-expanded="false">제작자 보기</button>
+      <span id="creditList" hidden></span>
+    </footer>
   </main>
 </div>
 
 <script src="characters.js"></script>
+<script src="pokemon.js"></script>
 <script>
 (() => {
 'use strict';
@@ -203,6 +239,7 @@ const Snd = {
   oops() { this.tone(500, 0.35, 'sawtooth', 0.06, 0, 160); },
   zzz() { this.tone(220, 0.5, 'sine', 0.07, 0, 180); },
   zoom() { this.tone(400, 0.35, 'square', 0.06, 0, 1600); },
+  evolve() { [523, 659, 784, 988, 1047, 1319].forEach((f, i) => this.tone(f, 0.18, 'triangle', 0.09, i * 0.11)); this.tone(300, 1.0, 'sine', 0.06, 0, 1200); this.noise(1.2, 0.08, 0.2, 4000, 2); this.tone(1568, 0.6, 'square', 0.06, 0.75); },
   gate() { this.tone(200, 0.3, 'square', 0.1, 0, 90); this.noise(0.3, 0.2, 0, 600, 0.7); },
   bgm(on) {
     clearInterval(this.bt); this.bt = 0;
@@ -240,6 +277,21 @@ function sprite(drawFn, size = 180) {
   const c = document.createElement('canvas'); c.width = c.height = size;
   const old = Chars.getContext(); Chars.setContext(c.getContext('2d'));
   drawFn(size); Chars.setContext(old); return c.toDataURL();
+}
+// 포켓몬 모드에서는 배경을 PX배 작게 그렸다가 그대로 확대해 도트 그림처럼 보이게 함
+const PX = 6; // 배경 픽셀 한 칸 크기(화면 픽셀)
+let pxCv = null, pxG = null;
+const pixelOn = () => state.tab === 'race' && state.chars === 'pokemon';
+function pixelate(drawFn) {
+  if (!pixelOn()) return drawFn();
+  const w = Math.ceil(W / PX), h = Math.ceil(H / PX);
+  if (!pxCv) { pxCv = document.createElement('canvas'); pxG = pxCv.getContext('2d'); }
+  if (pxCv.width !== w || pxCv.height !== h) { pxCv.width = w; pxCv.height = h; }
+  pxG.setTransform(1, 0, 0, 1, 0, 0); pxG.clearRect(0, 0, w, h); pxG.setTransform(1 / PX, 0, 0, 1 / PX, 0, 0);
+  const old = g, oldC = Chars.getContext();
+  g = pxG; Chars.setContext(pxG);
+  try { drawFn(); } finally { g = old; Chars.setContext(oldC); }
+  g.save(); g.imageSmoothingEnabled = false; g.drawImage(pxCv, 0, 0, w, h, 0, 0, w * PX, h * PX); g.restore();
 }
 
 /* ---------- 배경 장면 (언덕) ---------- */
@@ -279,21 +331,49 @@ function bunting(x0, y0, x1, y1, sag, t, scale) {
 
 /* ---------- 동물 달리기 ---------- */
 // comeback: 후반(55~85%)에 한 번 멈췄다가 막판에 치고 나오는 극적인 주자
-function buildPlan(T, comeback) {
-  const K = 8 + Math.floor(rnd() * 4), cuts = [0, 1];
+// evo: 포켓몬 모드에서 경주 중 진화할 횟수(0~2). 진화할 때 잠깐 멈춰 이펙트, 진화 뒤로는 EVO_SPEED배 빨라짐.
+//      진화하는 시간까지 포함한 전체를 도착 시간 T에 맞춰 늘리고 줄이므로, 진화 횟수와 관계없이
+//      평균 속도(거리 ÷ 진화 시간 포함 전체 시간)는 같음
+// wild: 포켓몬 모드용. 속도 바뀌는 구간과 폭, 돌발 상황을 늘리고 진화 직후 '진화 대시'를 넣어 선두가 더 자주 바뀌게 함
+const EVO_SPEED = 1.3, EVO_SEC = 1.0, EVO_DASH = 1.8;
+// 포켓몬 모드: 경주 계획을 여러 번 짜 보고 선두가 가장 많이 바뀌는 것을 고름 (목표 WILD_TARGET번, 최대 WILD_TRIES번 시도)
+const WILD_TARGET = 12, WILD_TRIES = 40;
+// 계획대로 달렸을 때 선두(아직 안 들어온 주자 중 가장 앞)가 몇 번 바뀌는지. 0.25초 이상 앞서야 교체로 셈
+function leadChanges(rs) {
+  const Tm = Math.max(...rs.map(r => r.T)); let lead = null, cand = null, ct = 0, ch = 0;
+  for (let t = 0; t < Tm; t += 0.05) {
+    let best = null, bp = -1;
+    for (const r of rs) { if (t >= r.T) continue; const p = planAt(r.plan, t).p; if (p > bp) { bp = p; best = r; } }
+    if (!best) break;
+    if (best !== cand) { cand = best; ct = t; }
+    if (cand !== lead && t - ct >= 0.25) { if (lead) ch++; lead = cand; }
+  }
+  return ch;
+}
+function buildPlan(T, comeback, evo = 0, wild = false) {
+  const K = (wild ? 12 : 8) + Math.floor(rnd() * 4), cuts = [0, 1];
+  const evoAt = evo === 1 ? [rr(0.35, 0.6)] : evo === 2 ? [rr(0.22, 0.38), rr(0.55, 0.72)] : [];
+  cuts.push(...evoAt);
   if (comeback) cuts.push(rr(0.55, 0.8), rr(0.9, 0.95));
   for (let i = 0; i < K - 1; i++) cuts.push(rr(0.05, 0.97));
   cuts.sort((a, b) => a - b);
   const pieces = [];
-  for (let i = 0; i < cuts.length - 1; i++) { if (cuts[i + 1] - cuts[i] < 0.012) continue; pieces.push({ p0: cuts[i], p1: cuts[i + 1], sp: pieces.length === 0 ? 0.7 : rr(0.45, 1.7), st: 'run', stop: null }); }
+  for (let i = 0; i < cuts.length - 1; i++) { if (cuts[i + 1] - cuts[i] < 0.012) continue; pieces.push({ p0: cuts[i], p1: cuts[i + 1], sp: pieces.length === 0 ? 0.7 : wild ? rr(0.4, 1.9) : rr(0.45, 1.7), st: 'run', stop: null }); }
   pieces[pieces.length - 1].p1 = 1;
   const used = new Set();
+  evoAt.forEach((at, i) => {
+    let j = 1, best = 9; pieces.forEach((pc, k) => { if (k > 0 && !used.has(k) && Math.abs(pc.p0 - at) < best) { best = Math.abs(pc.p0 - at); j = k; } });
+    pieces[j].stop = { st: 'evolve', d: EVO_SEC, evo: i + 1 }; used.add(j);
+  });
+  if (evoAt.length) { const at = pieces.filter(pc => pc.stop && pc.stop.st === 'evolve').map(pc => pc.p0); for (const pc of pieces) pc.sp *= Math.pow(EVO_SPEED, at.filter(a => a <= pc.p0 + 1e-9).length); }
+  // 진화 대시: 진화가 끝난 바로 다음 구간을 부스터로
+  if (wild) pieces.forEach((pc, k) => { const nx = pieces[k + 1]; if (pc.stop && pc.stop.st === 'evolve' && nx && !used.has(k + 1)) { nx.sp *= EVO_DASH; nx.st = 'boost'; used.add(k + 1); } });
   if (comeback) {
-    const j = pieces.findIndex(pc => pc.p0 >= 0.55);
+    const j = pieces.findIndex((pc, k) => pc.p0 >= 0.55 && !used.has(k));
     if (j > 0) { pieces[j].stop = { st: rnd() < 0.5 ? 'sleep' : 'trip', d: rr(1.0, 1.6) }; used.add(j); }
     pieces[pieces.length - 1].sp = rr(1.8, 2.4); used.add(pieces.length - 1);
   }
-  const nev = rnd() < 0.8 ? (rnd() < 0.4 ? 2 : 1) : 0;
+  const nev = wild ? 2 + (rnd() < 0.5 ? 1 : 0) : rnd() < 0.8 ? (rnd() < 0.4 ? 2 : 1) : 0;
   for (let e = 0; e < nev && pieces.length > 1; e++) {
     const j = 1 + Math.floor(rnd() * (pieces.length - 1)); if (used.has(j)) continue; used.add(j);
     const r = rnd(), pc = pieces[j];
@@ -303,10 +383,10 @@ function buildPlan(T, comeback) {
   }
   let stops = 0, run = 0;
   for (const pc of pieces) { if (pc.stop) stops += pc.stop.d; run += (pc.p1 - pc.p0) / pc.sp; }
-  if (T - stops < T * 0.7) { pieces.forEach(pc => pc.stop = null); stops = 0; }
+  if (T - stops < T * 0.7) { pieces.forEach(pc => { if (pc.stop && pc.stop.st !== 'evolve') pc.stop = null; }); stops = pieces.reduce((a, pc) => a + (pc.stop ? pc.stop.d : 0), 0); }
   const k = (T - stops) / run, segs = []; let t = 0;
   for (const pc of pieces) {
-    if (pc.stop) { segs.push({ t0: t, t1: t + pc.stop.d, p0: pc.p0, p1: pc.p0, st: pc.stop.st, sp: 0 }); t += pc.stop.d; }
+    if (pc.stop) { segs.push({ t0: t, t1: t + pc.stop.d, p0: pc.p0, p1: pc.p0, st: pc.stop.st, sp: 0, evo: pc.stop.evo }); t += pc.stop.d; }
     const d = (pc.p1 - pc.p0) / pc.sp * k;
     segs.push({ t0: t, t1: t + d, p0: pc.p0, p1: pc.p1, st: pc.st, sp: (pc.p1 - pc.p0) / d * T }); t += d;
   }
@@ -341,8 +421,9 @@ const Race = {
   setup(names) {
     this.L = Math.max(H * 7, 3600); this.finishY = this.L;
     const N = names.length, order = shuffle([...Array(N).keys()]);
+    const tight = state.chars === 'pokemon' && window.Poke && Poke.ready && this.wild !== false;
     const T1 = rr(19, 24), maxTail = Math.min(6.5, 0.5 * (N - 1) + 0.3);
-    const gaps = []; for (let k = 1; k < N; k++) gaps.push(k === 1 ? rr(0.03, 0.3) : rr(0.25, 1.2));
+    const gaps = []; for (let k = 1; k < N; k++) gaps.push(k === 1 ? rr(0.03, 0.3) : tight ? rr(0.12, 0.55) : rr(0.25, 1.2));
     const tail = gaps.slice(1).reduce((a, b) => a + b, 0);
     if (tail > maxTail) for (let k = 1; k < gaps.length; k++) gaps[k] *= maxTail / tail;
     const times = []; let acc = T1; times[order[0]] = T1;
@@ -350,9 +431,26 @@ const Race = {
     // 8명까지는 선택 화면에 서 있는 동물 순서 그대로(1번=병아리, 2번=판다…), 그 이상은 무작위
     const kinds = N <= 8 ? [...Array(ANIMALS.length).keys()] : shuffle([...Array(ANIMALS.length).keys()]);
     // 역전 주자: 우승자일 수도, 아닐 수도 있게 섞어서 정함
+    const wild = state.chars === 'pokemon' && window.Poke && Poke.ready && this.wild !== false;
     const cb = new Set(); if (rnd() < 0.6) cb.add(order[0]);
-    for (const i of shuffle([...Array(N).keys()]).slice(0, Math.min(2, N - 1))) if (rnd() < 0.6) cb.add(i);
-    this.runners = names.map((nm, i) => ({ name: nm, lane: i, kind: kinds[i % kinds.length], color: BALLOON[i % BALLOON.length], T: times[i], plan: buildPlan(times[i], cb.has(i)), p: 0, phase: rnd() * 6, st: 'idle', rank: 0, lastSeg: null }));
+    for (const i of shuffle([...Array(N).keys()]).slice(0, Math.min(wild ? 3 : 2, N - 1))) if (rnd() < 0.6) cb.add(i);
+    // 포켓몬 모드: 미리 뽑아 둔 포켓몬(무작위)과 그 진화 계열
+    const poke = state.chars === 'pokemon' && window.Poke && Poke.ready;
+    const ids = poke ? (this.pokeIds && this.pokeIds.length >= N ? this.pokeIds : rollPoke(N)) : null;
+    this.runners = names.map((nm, i) => {
+      const forms = poke ? Poke.line(ids[i]) : null;
+      return { name: nm, lane: i, kind: kinds[i % kinds.length], forms, color: BALLOON[i % BALLOON.length], T: times[i], plan: buildPlan(times[i], cb.has(i), forms ? forms.length - 1 : 0, wild), p: 0, phase: rnd() * 6, atime: rnd() * 2, st: 'idle', rank: 0, lastSeg: null };
+    });
+    if (wild) {
+      // 도착 순서와 시간(T)은 그대로 두고, 가는 길(속도 변화·돌발 상황·진화 위치)만 여러 번 다시 짜서 고름
+      let best = this.runners.map(r => r.plan), bestN = leadChanges(this.runners);
+      for (let k = 0; k < WILD_TRIES && bestN < WILD_TARGET; k++) {
+        this.runners.forEach(r => { r.plan = buildPlan(r.T, cb.has(r.lane), r.forms.length - 1, true); });
+        const n = leadChanges(this.runners);
+        if (n > bestN) { bestN = n; best = this.runners.map(r => r.plan); }
+      }
+      this.runners.forEach((r, i) => { r.plan = best[i]; });
+    }
     for (let it = 0; it < 3; it++) { const k = GAME_SEC / raceRealTime(this.runners); for (const r of this.runners) { r.T *= k; for (const sg of r.plan) { sg.t0 *= k; sg.t1 *= k; } } }
     this.byT = [...this.runners].sort((a, b) => a.T - b.T);
     this.t = 0; this.slow = 1; this.finished = 0; this.doneT = 0; this.pops = [];
@@ -377,21 +475,34 @@ const Race = {
       const sdt = dt * this.slow * state.speed; this.t += sdt;
       for (const r of this.byT) if (!r.rank && this.t >= r.T) { r.rank = ++this.finished; r.finT = r.T; this.onFinish(r); }
       for (const r of this.runners) {
-        if (r.rank) { r.st = 'happy'; r.phase += sdt * 8; continue; }
+        if (r.rank) { r.st = 'happy'; r.phase += sdt * 8; r.atime += sdt; continue; }
         const a = planAt(r.plan, this.t); r.p = a.p; r.st = a.st;
-        if (a.seg !== r.lastSeg) { r.lastSeg = a.seg; if (a.seg && POP[a.st]) { this.pops.push({ r, txt: POP[a.st], t: 0 }); if (a.st === 'trip') Snd.oops(); else if (a.st === 'sleep') Snd.zzz(); else Snd.zoom(); } }
+        if (a.seg !== r.lastSeg) {
+          r.lastSeg = a.seg;
+          if (a.seg && a.st === 'evolve' && r.forms) { const f = Poke.info(r.forms[a.seg.evo - 1]).name, to = Poke.info(r.forms[a.seg.evo]).name; this.pops.push({ r, txt: `${f} → ${to}!`, t: -0.4, evo: true }); Snd.evolve(); }
+          else if (a.seg && POP[a.st]) { this.pops.push({ r, txt: POP[a.st], t: 0 }); if (a.st === 'trip') Snd.oops(); else if (a.st === 'sleep') Snd.zzz(); else Snd.zoom(); }
+        }
         r.phase += sdt * (a.st === 'run' || a.st === 'boost' ? 6 + a.sp * 9 : 5);
+        r.atime += sdt * (a.st === 'run' || a.st === 'boost' ? 0.7 + a.sp * 0.5 : 1);
       }
-      if (this.finished === this.runners.length) { this.doneT += dt * state.speed; if (this.doneT > RESULT_WAIT) { this.phase = 'done'; Snd.bgm(false); finishGame(this.runners.slice().sort((a, b) => a.rank - b.rank).map(r => ({ name: r.name, img: animalImg(r.kind), rank: r.rank }))); } }
+      if (this.finished === this.runners.length) { this.doneT += dt * state.speed; if (this.doneT > RESULT_WAIT) { this.phase = 'done'; Snd.bgm(false); finishGame(this.runners.slice().sort((a, b) => a.rank - b.rank).map(r => ({ name: r.name, img: r.forms ? pokeImg(r.forms[r.forms.length - 1]) : animalImg(r.kind), rank: r.rank }))); } }
       tickerUpdate(this.runners.slice().sort((a, b) => (a.rank || 1e9) - (b.rank || 1e9) || b.p - a.p).map(r => r.name));
-    } else { for (const r of this.runners) r.phase += dt * 3; }
-    this.pops = this.pops.filter(p => (p.t += dt) < 1.1);
+    } else { for (const r of this.runners) { r.phase += dt * 3; r.atime += dt; } }
+    this.pops = this.pops.filter(p => (p.t += dt) < (p.evo ? 1.8 : 1.1));
     // 카메라: 선두를 화면 74% 지점에 두어 뒤쫓는 주자들이 보이게
     const yOf = r => this.footY(r, G);
     const leadY = this.phase === 'ready' ? 0 : Math.max(...this.runners.map(yOf));
     const tgt = clamp(leadY - H * 0.74, -H * 0.3, this.finishY + Math.max(70, G.s * 0.9) + G.s * 1.6 + 40 - H);
     this.cam += (tgt - this.cam) * Math.min(1, dt * 5);
   },
+  // 포켓몬 주자의 지금 모습(경주 시간까지 끝난 진화 수만큼 진화)
+  formOf(r) { let k = 0; for (const sg of r.plan) if (sg.st === 'evolve' && this.t >= sg.t1) k = sg.evo; return r.forms[k]; },
+  evoState(r) {
+    if (r.rank || this.phase !== 'run') return null;
+    const sg = r.plan.find(x => x.st === 'evolve' && this.t >= x.t0 && this.t < x.t1);
+    return sg ? { from: r.forms[sg.evo - 1], to: r.forms[sg.evo], u: (this.t - sg.t0) / (sg.t1 - sg.t0) } : null;
+  },
+  headH(r, s) { const ev = this.evoState(r); return ev ? Math.max(Poke.height(ev.from, s), Poke.height(ev.to, s)) : Poke.height(this.formOf(r), s); },
   footY(r, G) {
     if (!r.rank) return r.p * this.finishY;
     const u = ease(Math.min(1, (this.t - r.finT) / 0.8));
@@ -404,52 +515,63 @@ const Race = {
     if (hit && state.pick === 'last') { setBanner(`꼴등은 ${r.name}!`, true); Snd.fanfare(); burst(W / 2, H * 0.3, 90); }
   },
   draw() {
-    if (this.phase === 'idle') { drawHills(this.anim || 0); if ($('#result').hidden) this.drawParade(); return; }
+    if (this.phase === 'idle') { pixelate(() => drawHills(this.anim || 0)); if ($('#result').hidden) this.drawParade(); return; }
     const G = this.geo(), cam = this.cam, F = this.finishY, bandH = Math.max(70, G.s * 0.9);
-    // 모래·잔디
-    g.fillStyle = '#e9c47c'; g.fillRect(0, 0, W, H);
-    const top = Math.max(-H * 0.3 - 40, cam), bot = Math.min(F + H, cam + H);
-    g.fillStyle = '#e3956b'; g.fillRect(G.x0, top - cam, G.x1 - G.x0, bot - top);
-    // 가로 표시선
-    g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 3;
-    for (let k = 1; k < 10; k++) { const y = F * k / 10 - cam; if (y > -10 && y < H + 10) { g.beginPath(); g.moveTo(G.x0, y); g.lineTo(G.x1, y); g.stroke(); } }
-    // 출발선
-    if (-cam > -20 && -cam < H + 20) { g.lineWidth = 8; g.strokeStyle = '#fff'; g.beginPath(); g.moveTo(G.x0, -cam - 4); g.lineTo(G.x1, -cam - 4); g.stroke(); outlined('START', (G.x0 + G.x1) / 2, -cam - 26, Math.min(48, W * 0.06), '#fff', '#c96a3e', 'Lilita One'); }
-    // 결승 띠
-    const fy = F - cam;
-    if (fy < H + 10 && fy + bandH > -10) {
-      g.fillStyle = '#d77f50'; g.fillRect(G.x0, fy, G.x1 - G.x0, bandH);
-      g.fillStyle = '#fff'; g.fillRect(G.x0, fy - 3, G.x1 - G.x0, 6); g.fillRect(G.x0, fy + bandH - 3, G.x1 - G.x0, 6);
-      outlined('FINISH', (G.x0 + G.x1) / 2, fy + bandH * 0.72, bandH * 0.62, '#fff', 'rgba(150,70,30,.35)', 'Lilita One', 4);
-    }
-    // 레인 선
-    g.strokeStyle = '#fff'; g.lineWidth = Math.max(2, Math.min(4, G.lane * 0.06));
-    for (let i = 0; i <= this.runners.length; i++) { const x = G.x0 + i * G.lane; g.beginPath(); g.moveTo(x, top - cam); g.lineTo(x, Math.min(bot, F) - cam); g.stroke(); }
-    // 거리 표지판
-    for (let k = 1; k <= 4; k++) { const y = F * k / 5 - cam; if (y > -60 && y < H + 60) sign(G.x1 + G.sand * 1.3, y, `${k * 20}m`, Math.max(26, G.sand * 1.6)); }
-    this.drawGrass(G);
-    // 그림자 만국기
     const flagsY = k => F * (k + 0.5) / 6;
-    for (let k = 0; k < 6; k++) { const y = flagsY(k) - cam; if (y > -120 && y < H + 120) { g.globalAlpha = 0.13; g.save(); g.translate(14, 46); bunting(-20, y - 40, W + 20, y - 10, 60, 0, 1); g.restore(); g.globalAlpha = 1; } }
+    pixelate(() => {
+      // 모래·잔디
+      g.fillStyle = '#e9c47c'; g.fillRect(0, 0, W, H);
+      const top = Math.max(-H * 0.3 - 40, cam), bot = Math.min(F + H, cam + H);
+      g.fillStyle = '#e3956b'; g.fillRect(G.x0, top - cam, G.x1 - G.x0, bot - top);
+      // 가로 표시선
+      g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 3;
+      for (let k = 1; k < 10; k++) { const y = F * k / 10 - cam; if (y > -10 && y < H + 10) { g.beginPath(); g.moveTo(G.x0, y); g.lineTo(G.x1, y); g.stroke(); } }
+      // 출발선
+      if (-cam > -20 && -cam < H + 20) { g.lineWidth = 8; g.strokeStyle = '#fff'; g.beginPath(); g.moveTo(G.x0, -cam - 4); g.lineTo(G.x1, -cam - 4); g.stroke(); outlined('START', (G.x0 + G.x1) / 2, -cam - 26, Math.min(48, W * 0.06), '#fff', '#c96a3e', 'Lilita One'); }
+      // 결승 띠
+      const fy = F - cam;
+      if (fy < H + 10 && fy + bandH > -10) {
+        g.fillStyle = '#d77f50'; g.fillRect(G.x0, fy, G.x1 - G.x0, bandH);
+        g.fillStyle = '#fff'; g.fillRect(G.x0, fy - 3, G.x1 - G.x0, 6); g.fillRect(G.x0, fy + bandH - 3, G.x1 - G.x0, 6);
+        outlined('FINISH', (G.x0 + G.x1) / 2, fy + bandH * 0.72, bandH * 0.62, '#fff', 'rgba(150,70,30,.35)', 'Lilita One', 4);
+      }
+      // 레인 선
+      g.strokeStyle = '#fff'; g.lineWidth = Math.max(2, Math.min(4, G.lane * 0.06));
+      for (let i = 0; i <= this.runners.length; i++) { const x = G.x0 + i * G.lane; g.beginPath(); g.moveTo(x, top - cam); g.lineTo(x, Math.min(bot, F) - cam); g.stroke(); }
+      // 거리 표지판
+      for (let k = 1; k <= 4; k++) { const y = F * k / 5 - cam; if (y > -60 && y < H + 60) sign(G.x1 + G.sand * 1.3, y, `${k * 20}m`, Math.max(26, G.sand * 1.6)); }
+      this.drawGrass(G);
+      // 그림자 만국기
+      for (let k = 0; k < 6; k++) { const y = flagsY(k) - cam; if (y > -120 && y < H + 120) { g.globalAlpha = 0.13; g.save(); g.translate(14, 46); bunting(-20, y - 40, W + 20, y - 10, 60, 0, 1); g.restore(); g.globalAlpha = 1; } }
+    });
     // 주자
     const list = this.runners.slice().sort((a, b) => this.footY(a, G) - this.footY(b, G));
     const s = G.s, fs = clamp(s * 0.26, 11, 22);
     for (const r of list) {
       const x = G.x0 + (r.lane + 0.5) * G.lane, y = this.footY(r, G) - cam;
       if (y < -s * 0.2 || y > H + s * 1.6) continue;
-      drawAnimal(r.kind, x, y, s, { phase: r.phase, state: this.phase === 'ready' ? 'idle' : r.st });
-      balloon(x + s * 0.05, y - s * 1.3, clamp(s * 0.18, 9, 22), r.color, String(r.lane + 1));
+      const st = this.phase === 'ready' ? 'idle' : r.st;
+      if (r.forms) {
+        const ev = this.evoState(r), id = this.formOf(r);
+        Poke.draw(ev ? ev.from : id, x, y, s, { state: ev ? 'evolve' : st, t: r.atime, evolve: ev });
+        balloon(x + s * 0.05, y - this.headH(r, s) - s * 0.42, clamp(s * 0.18, 9, 22), r.color, String(r.lane + 1));
+      } else {
+        drawAnimal(r.kind, x, y, s, { phase: r.phase, state: st });
+        balloon(x + s * 0.05, y - s * 1.3, clamp(s * 0.18, 9, 22), r.color, String(r.lane + 1));
+      }
       nameTag(r.name, x, y + s * 0.06, Math.max(G.lane * 0.98, s * 0.9), fs);
       if (r.rank) outlined(String(r.rank), x, y + s * 0.06 + fs * 1.3 + s * 0.5, s * 0.5, '#ff6f91', '#fff', 'Lilita One', s * 0.1);
     }
     for (const p of this.pops) {
-      const r = p.r, x = G.x0 + (r.lane + 0.5) * G.lane, y = this.footY(r, G) - cam - s * 1.75 - p.t * 30;
-      g.globalAlpha = 1 - Math.max(0, p.t - 0.7) / 0.4;
-      outlined(p.txt, x, y, clamp(s * 0.32, 14, 30), p.txt === '부스터!' ? '#ff7a2e' : '#ffffff', p.txt === '부스터!' ? '#fff' : '#e0567a', 'Jua');
+      if (p.t < 0) continue;
+      const r = p.r, x = G.x0 + (r.lane + 0.5) * G.lane, y = this.footY(r, G) - cam - (r.forms ? this.headH(r, s) + s * 0.85 : s * 1.75) - p.t * 30;
+      g.globalAlpha = Math.max(0, 1 - Math.max(0, p.t - (p.evo ? 1.4 : 0.7)) / 0.4);
+      if (p.evo) outlined(p.txt, x, y, clamp(s * 0.3, 14, 28), '#ffe14a', '#3f6fd8', 'Jua');
+      else outlined(p.txt, x, y, clamp(s * 0.32, 14, 30), p.txt === '부스터!' ? '#ff7a2e' : '#ffffff', p.txt === '부스터!' ? '#fff' : '#e0567a', 'Jua');
       g.globalAlpha = 1;
     }
     // 위로 지나가는 만국기
-    for (let k = 0; k < 6; k++) { const y = flagsY(k) - cam; if (y > -120 && y < H + 120) bunting(-20, y - 40, W + 20, y - 10, 60, this.anim, 1); }
+    pixelate(() => { for (let k = 0; k < 6; k++) { const y = flagsY(k) - cam; if (y > -120 && y < H + 120) bunting(-20, y - 40, W + 20, y - 10, 60, this.anim, 1); } });
     // 화면 밖(뒤처진) 주자 표시
     for (const r of this.runners) {
       const y = this.footY(r, G) - cam - s;
@@ -472,6 +594,12 @@ const Race = {
     }
   },
   drawParade() {
+    if (state.chars === 'pokemon') {
+      if (!window.Poke || !Poke.ready || !this.pokeIds) { outlined('포켓몬 불러오는 중…', W / 2, H * 0.88, Math.min(36, W * 0.05), '#fff', '#3f6fd8', 'Jua', 6); return; }
+      const show = this.pokeIds.slice(0, 8), n = show.length, s = Math.min(H * 0.2, W / (n + 1) * 0.9, 150);
+      show.forEach((id, i) => Poke.draw(id, W * (i + 1) / (n + 1), H * 0.93 - (i % 2) * s * 0.12, s, { state: 'idle', t: (this.anim || 0) + i * 0.3 }));
+      return;
+    }
     const names = getNames(), n = Math.min(Math.max(names.length, 2), 8), s = Math.min(H * 0.2, W / (n + 1) * 0.9, 150);
     for (let i = 0; i < n; i++) { const x = W * (i + 1) / (n + 1), y = H * 0.93 - (i % 2) * s * 0.12; drawAnimal(i % ANIMALS.length, x, y, s, { phase: (this.anim || 0) * 8 + i, state: 'idle' }); }
   }
@@ -481,6 +609,11 @@ function sign(x, y, txt, w) {
   g.fillStyle = '#fff'; g.strokeStyle = '#8a5a2a'; g.lineWidth = 3; g.beginPath(); g.roundRect(x - w * 0.6, y - w * 0.7, w * 1.2, w * 0.62, 6); g.fill(); g.stroke();
   g.fillStyle = '#2e6ad0'; g.font = `${w * 0.36}px Jua, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, x, y - w * 0.39); g.textBaseline = 'alphabetic';
 }
+const pokeCache = {};
+// 결과 화면 그림: 칸(sz)에 꽉 차게 (키는 80%, 너비는 90% 안)
+function pokeImg(id) { return pokeCache[id] || (pokeCache[id] = sprite(sz => { const s = Math.min(sz * 0.8 / Poke.height(id, 1), sz * 0.9 / Poke.width(id, 1)); Poke.draw(id, sz / 2, sz * 0.95, s, { state: 'happy', t: 0 }); })); }
+// 포켓몬 모드: 1세대 진화 1단계 포켓몬 30종에서 참가자 수만큼 무작위로(겹치지 않게). 모두 경주 중에 진화함
+function rollPoke(n = getNames().length) { return (Race.pokeIds = shuffle(Poke.ids().filter(id => Poke.info(id).stage === 1)).slice(0, Math.max(2, n))); }
 const animalCache = {};
 function animalImg(k) { return animalCache[k] || (animalCache[k] = sprite(sz => drawAnimal(k, sz / 2, sz * 0.97, sz * 0.8, { state: 'happy', phase: 0 }))); }
 
@@ -858,7 +991,7 @@ function drawConf(dt) {
 }
 
 /* ---------- 화면 흐름 ---------- */
-const state = { tab: store.get('tab', 'race') === 'marble' ? 'marble' : 'race', pick: store.get('pick', 'first') === 'last' ? 'last' : 'first', speed: 1, playing: false };
+const state = { tab: store.get('tab', 'race') === 'marble' ? 'marble' : 'race', pick: store.get('pick', 'first') === 'last' ? 'last' : 'first', chars: store.get('chars', 'animal') === 'pokemon' ? 'pokemon' : 'animal', speed: 1, playing: false };
 let clock = 0, runToken = 0, cdTimer = 0, lastNames = [];
 const elNames = $('#names');
 elNames.value = store.get('names', '1번\n2번\n3번\n4번\n5번\n6번\n7번\n8번');
@@ -873,17 +1006,47 @@ function renderSetup() {
   $('#goBtn').textContent = isRace ? '달리기' : '굴리기';
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === state.tab)));
   document.querySelectorAll('#pickSeg button').forEach(b => b.classList.toggle('on', b.dataset.pick === state.pick));
-  const n = getNames().length;
+  const n = getNames().length, poke = isRace && state.chars === 'pokemon';
   $('#count').textContent = `${n}명 참가`;
+  const note = !poke ? '' : pokeErr ? pokeErr : !(window.Poke && Poke.ready) ? '포켓몬 불러오는 중…' : '';
+  $('#charNote').hidden = !note; $('#charNote').textContent = note;
+  $('#goBtn').disabled = poke && !(window.Poke && Poke.ready);
+  updateLicense();
   document.querySelectorAll('.num').forEach(b => b.classList.toggle('on', Number(b.dataset.n) === n && elNames.value.trim().split(/\n/).every((s, i) => s.trim() === `${i + 1}번`)));
 }
 const NUMS = [2, 3, 4, 5, 6, 7, 8, 10, 15, 20, 25, 30];
 $('#nums').innerHTML = NUMS.map(n => `<button class="num" data-n="${n}" id="num-${n}">${n}</button>`).join('');
 $('#nums').addEventListener('click', e => { const b = e.target.closest('.num'); if (!b) return; Snd.init(); Snd.tone(880, 0.08, 'square', 0.08); elNames.value = Array.from({ length: Number(b.dataset.n) }, (_, i) => `${i + 1}번`).join('\n'); onNamesChanged(); });
 let prevT = 0;
-function onNamesChanged() { store.set('names', elNames.value); $('#err').hidden = true; renderSetup(); clearTimeout(prevT); if (state.tab === 'marble' && !state.playing) prevT = setTimeout(() => Marble.setup(getNames(), true), 250); }
+function onNamesChanged() { store.set('names', elNames.value); $('#err').hidden = true; if (state.chars === 'pokemon' && window.Poke && Poke.ready) rollPoke(); renderSetup(); clearTimeout(prevT); if (state.tab === 'marble' && !state.playing) prevT = setTimeout(() => Marble.setup(getNames(), true), 250); }
 elNames.addEventListener('input', onNamesChanged);
 $('#pickSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.pick = b.dataset.pick; store.set('pick', state.pick); renderSetup(); });
+// 포켓몬 모드: 고르면 그때 데이터를 불러오고, 달릴 포켓몬을 무작위로 뽑아 둠
+let pokeErr = '';
+function ensurePoke() {
+  if (state.chars !== 'pokemon' || !window.Poke) return;
+  if (Poke.ready) { if (!Race.pokeIds) rollPoke(); return; }
+  Poke.load().then(() => { pokeErr = ''; rollPoke(); renderSetup(); }).catch(() => { pokeErr = '포켓몬 데이터를 불러오지 못했어요. 동물로 달려요.'; state.chars = 'animal'; renderSetup(); });
+}
+$('#pokeToggle').addEventListener('click', () => {
+  if (state.playing) return;
+  Snd.init(); Snd.tone(state.chars === 'pokemon' ? 520 : 880, 0.08, 'square', 0.08);
+  state.chars = state.chars === 'pokemon' ? 'animal' : 'pokemon'; store.set('chars', state.chars); pokeErr = '';
+  ensurePoke(); renderSetup();
+});
+// 포켓몬 모드 표기는 화면 하단에 (동물 달리기 탭에서 포켓몬 모드일 때)
+function updateLicense() {
+  const race = state.tab === 'race', on = race && state.chars === 'pokemon', t = $('#pokeToggle');
+  $('#pokeLicense').hidden = !on; document.body.classList.toggle('poke-on', on); document.body.classList.toggle('race-tab', race);
+  t.hidden = !race || state.playing; t.setAttribute('aria-pressed', String(on)); t.disabled = state.playing; // 경주 중에는 숨겨 오른쪽 위 레인 표시를 가리지 않게 $('#pokeOnOff').textContent = on ? 'ON' : 'OFF';
+  t.title = on ? '포켓몬 모드 끄기' : '포켓몬 모드 켜기';
+}
+$('#creditBtn').addEventListener('click', () => {
+  const el = $('#creditList'), open = el.hidden;
+  if (open) el.textContent = '스프라이트 제작: ' + (window.Poke && Poke.ready ? Poke.credits().join(', ') : 'PMD Sprite Repository 기여자');
+  el.hidden = !open; $('#creditBtn').setAttribute('aria-expanded', String(open)); $('#creditBtn').textContent = open ? '닫기' : '제작자 보기';
+});
+
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => { if (state.tab === b.dataset.tab && !state.playing && $('#result').hidden) return; state.tab = b.dataset.tab; store.set('tab', state.tab); toSetup(); }));
 
 function toSetup() {
@@ -891,6 +1054,7 @@ function toSetup() {
   $('#result').hidden = true; $('#setup').hidden = false;
   Race.phase = 'idle';
   if (state.tab === 'marble') Marble.setup(getNames(), true);
+  ensurePoke();
   renderSetup();
 }
 function abort() {
@@ -900,10 +1064,11 @@ function abort() {
 }
 function start(names) {
   Snd.init();
+  if (state.tab === 'race' && state.chars === 'pokemon' && !(window.Poke && Poke.ready)) return;
   if (names.length < 2) { $('#err').textContent = '참가자가 2명 이상 있어야 시작할 수 있어요. 숫자 버튼을 누르거나 이름을 더 적어 주세요.'; $('#err').hidden = false; $('#setup').hidden = false; $('#result').hidden = true; return; }
   abort(); lastNames = names; conf = [];
   $('#setup').hidden = true; $('#result').hidden = true;
-  state.playing = true;
+  state.playing = true; updateLicense();
   game().setup(names, false);
   $('#hudBtns').hidden = false; $('#ticker').hidden = true;
   const tok = runToken, el = $('#cd'), seq = ['3', '2', '1', 'START!']; let i = 0;
@@ -923,7 +1088,7 @@ $('#ffBtn').addEventListener('click', () => { state.speed = state.speed === 1 ? 
 
 let lastResult = null;
 function finishGame(list) {
-  state.playing = false; $('#hudBtns').hidden = true; $('#ticker').hidden = true; bannerHold = 0; setBanner('');
+  state.playing = false; $('#hudBtns').hidden = true; $('#ticker').hidden = true; bannerHold = 0; setBanner(''); updateLicense();
   const win = state.pick === 'first' ? list[0] : list[list.length - 1];
   lastResult = win;
   $('#winTag').textContent = state.pick === 'first' ? '1등 당첨!' : '꼴등 당첨!';
@@ -938,7 +1103,7 @@ function finishGame(list) {
     const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = it.name;
     li.append(rk, im, nm); $('#rankList').append(li);
   }
-  if (state.tab === 'race') Race.phase = 'idle';
+  if (state.tab === 'race') { Race.phase = 'idle'; if (state.chars === 'pokemon' && window.Poke && Poke.ready) rollPoke(); }
   $('#result').hidden = false; $('#result').scrollTop = 0;
   Snd.fanfare(); burst(W * 0.3, H * 0.4, 70); burst(W * 0.7, H * 0.4, 70);
 }
