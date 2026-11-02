@@ -1045,7 +1045,7 @@ $('#pokeToggle').addEventListener('click', () => {
 function updateLicense() {
   const race = state.tab === 'race', on = race && state.chars === 'pokemon', t = $('#pokeToggle');
   $('#pokeLicense').hidden = !on; document.body.classList.toggle('poke-on', on); document.body.classList.toggle('race-tab', race);
-  t.hidden = !race || state.playing; t.setAttribute('aria-pressed', String(on)); t.disabled = state.playing; // 경주 중에는 숨겨 오른쪽 위 레인 표시를 가리지 않게 $('#pokeOnOff').textContent = on ? 'ON' : 'OFF';
+  t.hidden = !race || state.playing; t.setAttribute('aria-pressed', String(on)); t.disabled = state.playing; $('#pokeOnOff').textContent = on ? 'ON' : 'OFF'; // 경주 중에는 숨겨 오른쪽 위 레인 표시를 가리지 않게
   t.title = on ? '포켓몬 모드 끄기' : '포켓몬 모드 켜기';
 }
 $('#creditBtn').addEventListener('click', () => {
