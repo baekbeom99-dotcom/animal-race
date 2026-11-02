@@ -8,7 +8,7 @@
 <title>동물 달리기 추첨</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Jua&family=Lilita+One&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Lilita+One&family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
 /* 운동회 그림책: 하늘·언덕·흙길 장면 위에 분홍 테두리 흰 패널, 사탕색 유리알 버튼, 위에서 내려다보는 세로 트랙 */
 :root{
@@ -81,6 +81,8 @@ textarea{width:100%;box-sizing:border-box;min-height:110px;resize:vertical;font-
 .win .tag{font-size:22px;color:#fff;background:var(--pink);padding:3px 16px;border-radius:999px;margin-bottom:4px}
 .win img{width:clamp(110px,18vw,170px);height:auto;margin-bottom:-18px;position:relative;z-index:1;animation:hop 1s ease-in-out infinite}
 @keyframes hop{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+/* 포켓몬 모드: 도트 그림 그루터기 (배경 그림은 pixelStump()이 만듦) */
+.stump.pixel{height:auto;aspect-ratio:2/1;border:0;border-radius:0;background-color:transparent;background-position:center;background-size:100% 100%;background-repeat:no-repeat;image-rendering:pixelated;font-family:'Press Start 2P',var(--dfont);font-size:clamp(22px,3.4vw,32px);-webkit-text-stroke:0;color:#fff;text-shadow:3px 3px 0 #5a3818,-3px 0 0 #5a3818,0 -3px 0 #5a3818,3px 0 0 #5a3818;padding-bottom:9%}
 .stump{width:clamp(120px,20vw,180px);height:70px;border-radius:50%/22px;background:linear-gradient(#e2b67a 0 30%,#b9844a 31% 100%);border:3px solid #8a5a2a;display:flex;align-items:flex-end;justify-content:center;font-family:var(--dfont);font-size:44px;color:#fff;-webkit-text-stroke:3px #8a5a2a;paint-order:stroke fill;padding-bottom:4px;box-sizing:border-box}
 .ranks{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .ranks li{display:flex;align-items:center;gap:6px;background:#f7fbff;border:2px solid #d8eafb;border-radius:12px;padding:4px 8px;min-width:0;font-size:18px}
@@ -302,29 +304,44 @@ function pixelate(drawFn) {
 }
 
 /* ---------- 배경 장면 (언덕) ---------- */
+// 배경·트랙 색. 포켓몬 모드에서는 파이어레드 필드처럼 밝은 연두 잔디, 모랫빛 흙길, 진한 초록 나무
+const PAL_ANIMAL = {
+  sky1: '#3fa6f0', sky2: '#c4e9ff', hill1: '#a6e070', hill2: '#7fd04e', path1: '#e2b56a', path2: '#efcd84',
+  bush: '#3fae36', bushLine: '#2f8a28', trees: ['#ff9fb0', '#ff9a3c', '#ffb84a', '#4fbf3a'], trunk: '#9a6a3a',
+  sand: '#e9c47c', track: '#e3956b', trackAlt: '#e3956b', mark: 'rgba(255,255,255,.85)', lane: '#fff', finish: '#d77f50',
+  grass: '#78cc48', grassLine: '#3f9a2a', tuft: '#4fae33', post: '#8a5a2a', signText: '#2e6ad0'
+};
+const PAL_FIRERED = {
+  sky1: '#78c0f0', sky2: '#d0ecf8', hill1: '#a0d880', hill2: '#78c858', path1: '#c8a868', path2: '#e8d4a0',
+  bush: '#40a040', bushLine: '#206830', trees: ['#389040', '#48a848', '#307838', '#58b050'], trunk: '#806040',
+  sand: '#88d068', track: '#e8d4a0', trackAlt: '#dcc488', mark: 'rgba(248,244,224,.9)', lane: '#f8f4e0', finish: '#c89858',
+  grass: '#58b040', grassLine: '#2c7030', tuft: '#98e070', post: '#806040', signText: '#305888'
+};
+const pal = () => (pixelOn() ? PAL_FIRERED : PAL_ANIMAL);
 function drawHills(t) {
-  const sk = g.createLinearGradient(0, 0, 0, H * 0.6); sk.addColorStop(0, '#3fa6f0'); sk.addColorStop(1, '#c4e9ff');
+  const P = pal();
+  const sk = g.createLinearGradient(0, 0, 0, H * 0.6); sk.addColorStop(0, P.sky1); sk.addColorStop(1, P.sky2);
   g.fillStyle = sk; g.fillRect(0, 0, W, H);
   for (let i = 0; i < 4; i++) { const cx = ((i * 0.31 * W + t * (8 + i * 3)) % (W + 300)) - 150, cy = H * (0.08 + i * 0.07); cloud(cx, cy, 30 + i * 6); }
-  g.fillStyle = '#a6e070'; g.beginPath(); g.moveTo(0, H * 0.5); g.bezierCurveTo(W * 0.15, H * 0.22, W * 0.35, H * 0.3, W * 0.5, H * 0.42); g.bezierCurveTo(W * 0.65, H * 0.3, W * 0.85, H * 0.32, W, H * 0.4); g.lineTo(W, H); g.lineTo(0, H); g.fill();
-  g.fillStyle = '#7fd04e'; g.beginPath(); g.moveTo(0, H * 0.58); g.bezierCurveTo(W * 0.25, H * 0.45, W * 0.55, H * 0.6, W, H * 0.52); g.lineTo(W, H); g.lineTo(0, H); g.fill();
+  g.fillStyle = P.hill1; g.beginPath(); g.moveTo(0, H * 0.5); g.bezierCurveTo(W * 0.15, H * 0.22, W * 0.35, H * 0.3, W * 0.5, H * 0.42); g.bezierCurveTo(W * 0.65, H * 0.3, W * 0.85, H * 0.32, W, H * 0.4); g.lineTo(W, H); g.lineTo(0, H); g.fill();
+  g.fillStyle = P.hill2; g.beginPath(); g.moveTo(0, H * 0.58); g.bezierCurveTo(W * 0.25, H * 0.45, W * 0.55, H * 0.6, W, H * 0.52); g.lineTo(W, H); g.lineTo(0, H); g.fill();
   // 나무
-  for (const [tx, col, sc] of [[0.8, '#ff9fb0', 1], [0.88, '#ff9a3c', 1.2], [0.72, '#ffb84a', 0.8], [0.12, '#4fbf3a', 1.1]]) {
+  for (const [tx, col, sc] of [[0.8, P.trees[0], 1], [0.88, P.trees[1], 1.2], [0.72, P.trees[2], 0.8], [0.12, P.trees[3], 1.1]]) {
     const x = W * tx, y = H * 0.55, r = Math.min(W, H) * 0.06 * sc;
-    g.fillStyle = '#9a6a3a'; g.fillRect(x - r * 0.12, y - r * 0.4, r * 0.24, r * 0.9);
+    g.fillStyle = P.trunk; g.fillRect(x - r * 0.12, y - r * 0.4, r * 0.24, r * 0.9);
     ell(x - r * 0.45, y - r * 0.6, r * 0.6, r * 0.55, col); ell(x + r * 0.45, y - r * 0.6, r * 0.6, r * 0.55, col); ell(x, y - r * 1.05, r * 0.7, r * 0.6, col);
     ell(x - r * 0.2, y - r * 1.2, r * 0.25, r * 0.15, 'rgba(255,255,255,.35)');
   }
   // 흙길
-  g.fillStyle = '#e2b56a'; g.beginPath(); g.ellipse(W * 0.5, H * 0.94, W * 0.62, H * 0.36, 0, Math.PI, 0); g.fill();
-  g.fillStyle = '#efcd84'; g.beginPath(); g.ellipse(W * 0.5, H * 0.95, W * 0.6, H * 0.34, 0, Math.PI, 0); g.fill();
+  g.fillStyle = P.path1; g.beginPath(); g.ellipse(W * 0.5, H * 0.94, W * 0.62, H * 0.36, 0, Math.PI, 0); g.fill();
+  g.fillStyle = P.path2; g.beginPath(); g.ellipse(W * 0.5, H * 0.95, W * 0.6, H * 0.34, 0, Math.PI, 0); g.fill();
   // 덤불
   for (const [bx, by, br] of [[0.02, 0.62, 1.4], [0.08, 0.72, 1], [0, 0.88, 1.5], [0.98, 0.7, 1.2], [1, 0.9, 1.6], [0.92, 0.98, 1]]) bush(W * bx, H * by, Math.min(W, H) * 0.07 * br);
   // 만국기
   bunting(-20, H * 0.05, W + 20, H * 0.12, H * 0.2, t, 1);
 }
 function cloud(x, y, r) { g.fillStyle = 'rgba(255,255,255,.95)'; ell(x, y, r * 1.6, r * 0.7, '#fff'); ell(x - r * 0.6, y - r * 0.3, r * 0.7, r * 0.6, '#fff'); ell(x + r * 0.4, y - r * 0.5, r * 0.8, r * 0.7, '#fff'); }
-function bush(x, y, r) { for (const [dx, dy, k] of [[-0.6, 0.1, 0.7], [0.6, 0.1, 0.7], [0, -0.2, 0.85]]) ell(x + dx * r, y + dy * r, r * k, r * k * 0.85, '#3fae36', '#2f8a28'); ell(x - r * 0.2, y - r * 0.5, r * 0.3, r * 0.15, 'rgba(255,255,255,.3)'); }
+function bush(x, y, r) { for (const [dx, dy, k] of [[-0.6, 0.1, 0.7], [0.6, 0.1, 0.7], [0, -0.2, 0.85]]) ell(x + dx * r, y + dy * r, r * k, r * k * 0.85, pal().bush, pal().bushLine); ell(x - r * 0.2, y - r * 0.5, r * 0.3, r * 0.15, 'rgba(255,255,255,.3)'); }
 const FLAGS = ['#ff6f91', '#ffffff', '#2e9ef0', '#ff9a3c', '#19b5a5', '#ffffff', '#f2c40c'];
 function bunting(x0, y0, x1, y1, sag, t, scale) {
   g.strokeStyle = 'rgba(90,90,90,.7)'; g.lineWidth = 2; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo((x0 + x1) / 2, Math.max(y0, y1) + sag, x1, y1); g.stroke();
@@ -509,7 +526,10 @@ const Race = {
     const sg = r.plan.find(x => x.st === 'evolve' && this.t >= x.t0 && this.t < x.t1);
     return sg ? { from: r.forms[sg.evo - 1], to: r.forms[sg.evo], u: (this.t - sg.t0) / (sg.t1 - sg.t0) } : null;
   },
-  headH(r, s) { const ev = this.evoState(r); return ev ? Math.max(Poke.height(ev.from, s), Poke.height(ev.to, s)) : Poke.height(this.formOf(r), s); },
+  // 경주 화면의 포켓몬 크기: 레인 너비의 60%(1단계) → 70%(3단계 계열의 중간) → 80%(최종 진화).
+  // 인원이 2~3명이라 레인이 아주 넓을 때만 화면 높이의 28%를 넘지 않게
+  pokeGm(r, id, G) { const i = r.forms.indexOf(id), L = r.forms.length; return Math.min(G.lane * (0.6 + 0.2 * (L > 1 ? i / (L - 1) : 1)), H * 0.28); },
+  headH(r, s, G) { const ev = this.evoState(r); return ev ? Math.max(Poke.height(ev.from, s, this.pokeGm(r, ev.from, G)), Poke.height(ev.to, s, this.pokeGm(r, ev.to, G))) : Poke.height(this.formOf(r), s, this.pokeGm(r, this.formOf(r), G)); },
   footY(r, G) {
     if (!r.rank) return r.p * this.finishY;
     const u = ease(Math.min(1, (this.t - r.finT) / 0.8));
@@ -527,23 +547,26 @@ const Race = {
     const flagsY = k => F * (k + 0.5) / 6;
     pixelate(() => {
       // 모래·잔디
-      g.fillStyle = '#e9c47c'; g.fillRect(0, 0, W, H);
+      const P = pal();
+      g.fillStyle = P.sand; g.fillRect(0, 0, W, H);
       const top = Math.max(-H * 0.3 - 40, cam), bot = Math.min(F + H, cam + H);
-      g.fillStyle = '#e3956b'; g.fillRect(G.x0, top - cam, G.x1 - G.x0, bot - top);
+      g.fillStyle = P.track; g.fillRect(G.x0, top - cam, G.x1 - G.x0, bot - top);
+      // 레인을 한 줄씩 번갈아 살짝 진하게 (포켓몬 모드에서만 색이 다름)
+      if (P.trackAlt !== P.track) { g.fillStyle = P.trackAlt; for (let i = 1; i < this.runners.length; i += 2) g.fillRect(G.x0 + i * G.lane, top - cam, G.lane, bot - top); }
       // 가로 표시선
-      g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 3;
+      g.strokeStyle = P.mark; g.lineWidth = 3;
       for (let k = 1; k < 10; k++) { const y = F * k / 10 - cam; if (y > -10 && y < H + 10) { g.beginPath(); g.moveTo(G.x0, y); g.lineTo(G.x1, y); g.stroke(); } }
       // 출발선
       if (-cam > -20 && -cam < H + 20) { g.lineWidth = 8; g.strokeStyle = '#fff'; g.beginPath(); g.moveTo(G.x0, -cam - 4); g.lineTo(G.x1, -cam - 4); g.stroke(); outlined('START', (G.x0 + G.x1) / 2, -cam - 26, Math.min(48, W * 0.06), '#fff', '#c96a3e', 'Lilita One'); }
       // 결승 띠
       const fy = F - cam;
       if (fy < H + 10 && fy + bandH > -10) {
-        g.fillStyle = '#d77f50'; g.fillRect(G.x0, fy, G.x1 - G.x0, bandH);
+        g.fillStyle = P.finish; g.fillRect(G.x0, fy, G.x1 - G.x0, bandH);
         g.fillStyle = '#fff'; g.fillRect(G.x0, fy - 3, G.x1 - G.x0, 6); g.fillRect(G.x0, fy + bandH - 3, G.x1 - G.x0, 6);
         outlined('FINISH', (G.x0 + G.x1) / 2, fy + bandH * 0.72, bandH * 0.62, '#fff', 'rgba(150,70,30,.35)', 'Lilita One', 4);
       }
       // 레인 선
-      g.strokeStyle = '#fff'; g.lineWidth = Math.max(2, Math.min(4, G.lane * 0.06));
+      g.strokeStyle = P.lane; g.lineWidth = Math.max(2, Math.min(4, G.lane * 0.06));
       for (let i = 0; i <= this.runners.length; i++) { const x = G.x0 + i * G.lane; g.beginPath(); g.moveTo(x, top - cam); g.lineTo(x, Math.min(bot, F) - cam); g.stroke(); }
       // 거리 표지판
       for (let k = 1; k <= 4; k++) { const y = F * k / 5 - cam; if (y > -60 && y < H + 60) sign(G.x1 + G.sand * 1.3, y, `${k * 20}m`, Math.max(26, G.sand * 1.6)); }
@@ -559,9 +582,10 @@ const Race = {
       if (y < -s * 0.2 || y > H + s * 1.6) continue;
       const st = this.phase === 'ready' ? 'idle' : r.st;
       if (r.forms) {
-        const ev = this.evoState(r), id = this.formOf(r);
-        Poke.draw(ev ? ev.from : id, x, y, s, { state: ev ? 'evolve' : st, t: r.atime, evolve: ev });
-        balloon(x + s * 0.05, y - this.headH(r, s) - s * 0.42, clamp(s * 0.18, 9, 22), r.color, String(r.lane + 1));
+        const ev = this.evoState(r), id = this.formOf(r), cur = ev ? ev.from : id;
+        if (ev) { ev.gmFrom = this.pokeGm(r, ev.from, G); ev.gmTo = this.pokeGm(r, ev.to, G); }
+        Poke.draw(cur, x, y, s, { state: ev ? 'evolve' : st, t: r.atime, evolve: ev, gm: this.pokeGm(r, cur, G) });
+        balloon(x + s * 0.05, y - this.headH(r, s, G) - s * 0.42, clamp(s * 0.18, 9, 22), r.color, String(r.lane + 1));
       } else {
         drawAnimal(r.kind, x, y, s, { phase: r.phase, state: st });
         balloon(x + s * 0.05, y - s * 1.3, clamp(s * 0.18, 9, 22), r.color, String(r.lane + 1));
@@ -571,7 +595,7 @@ const Race = {
     }
     for (const p of this.pops) {
       if (p.t < 0) continue;
-      const r = p.r, x = G.x0 + (r.lane + 0.5) * G.lane, y = this.footY(r, G) - cam - (r.forms ? this.headH(r, s) + s * 0.85 : s * 1.75) - p.t * 30;
+      const r = p.r, x = G.x0 + (r.lane + 0.5) * G.lane, y = this.footY(r, G) - cam - (r.forms ? this.headH(r, s, G) + s * 0.85 : s * 1.75) - p.t * 30;
       g.globalAlpha = Math.max(0, 1 - Math.max(0, p.t - (p.evo ? 1.4 : 0.7)) / 0.4);
       if (p.evo) outlined(p.txt, x, y, clamp(s * 0.3, 14, 28), '#ffe14a', '#3f6fd8', 'Jua');
       else outlined(p.txt, x, y, clamp(s * 0.32, 14, 30), p.txt === '부스터!' ? '#ff7a2e' : '#ffffff', p.txt === '부스터!' ? '#fff' : '#e0567a', 'Jua');
@@ -594,8 +618,9 @@ const Race = {
       g.moveTo(side ? W : 0, -20);
       for (let sy = -20; sy <= H + 20; sy += 14) g.lineTo(edge(sy), sy);
       g.lineTo(side ? W : 0, H + 20); g.closePath();
-      g.fillStyle = '#78cc48'; g.fill(); g.strokeStyle = '#3f9a2a'; g.lineWidth = 3; g.stroke();
-      g.strokeStyle = '#4fae33'; g.lineWidth = 2;
+      const P = pal();
+      g.fillStyle = P.grass; g.fill(); g.strokeStyle = P.grassLine; g.lineWidth = 3; g.stroke();
+      g.strokeStyle = P.tuft; g.lineWidth = 2;
       const start = Math.floor(off / 50) * 50;
       for (let wy = start; wy < off + H + 50; wy += 50) { const sy = wy - off, x = side ? W - G.grass * 0.45 : G.grass * 0.45, j = ((wy * 7919) % 13) - 6; g.beginPath(); g.moveTo(x + j - 4, sy - 5); g.lineTo(x + j, sy + 3); g.lineTo(x + j + 4, sy - 5); g.stroke(); }
     }
@@ -612,9 +637,10 @@ const Race = {
   }
 };
 function sign(x, y, txt, w) {
-  g.fillStyle = '#8a5a2a'; g.fillRect(x - 2, y - w * 0.2, 4, w * 0.9);
-  g.fillStyle = '#fff'; g.strokeStyle = '#8a5a2a'; g.lineWidth = 3; g.beginPath(); g.roundRect(x - w * 0.6, y - w * 0.7, w * 1.2, w * 0.62, 6); g.fill(); g.stroke();
-  g.fillStyle = '#2e6ad0'; g.font = `${w * 0.36}px Jua, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, x, y - w * 0.39); g.textBaseline = 'alphabetic';
+  const P = pal();
+  g.fillStyle = P.post; g.fillRect(x - 2, y - w * 0.2, 4, w * 0.9);
+  g.fillStyle = '#fff'; g.strokeStyle = P.post; g.lineWidth = 3; g.beginPath(); g.roundRect(x - w * 0.6, y - w * 0.7, w * 1.2, w * 0.62, 6); g.fill(); g.stroke();
+  g.fillStyle = P.signText; g.font = `${w * 0.36}px Jua, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, x, y - w * 0.39); g.textBaseline = 'alphabetic';
 }
 const pokeCache = {};
 // 결과 화면 그림: 칸(sz)에 꽉 차게 (키는 80%, 너비는 90% 안)
@@ -1094,6 +1120,25 @@ $('#stopBtn').addEventListener('click', () => toSetup());
 $('#ffBtn').addEventListener('click', () => { state.speed = state.speed === 1 ? 2 : 1; $('#ffBtn').textContent = state.speed === 1 ? '빠르게 ×2' : '보통 속도'; });
 
 let lastResult = null;
+// 도트 그림 그루터기(40×20칸): 윗면 나이테 + 옆면 나무껍질, 파이어레드 톤 갈색
+let stumpURL = '';
+function pixelStump() {
+  if (stumpURL) return stumpURL;
+  const c = document.createElement('canvas'); c.width = 40; c.height = 20; const x2 = c.getContext('2d');
+  const inE = (x, y, cx, cy, rx, ry) => ((x + 0.5 - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2 <= 1;
+  const top = (x, y) => inE(x, y, 20, 6, 18, 5);
+  const shape = (x, y) => x >= 0 && y >= 0 && x < 40 && y < 20 && (top(x, y) || (x >= 2 && x < 38 && y >= 6 && y <= 16) || inE(x, y, 20, 16, 18, 3));
+  for (let y = 0; y < 20; y++) for (let x = 0; x < 40; x++) {
+    if (!shape(x, y)) continue;
+    let col;
+    const edge = !shape(x - 1, y) || !shape(x + 1, y) || !shape(x, y - 1) || !shape(x, y + 1);
+    if (edge) col = '#5a3818';
+    else if (top(x, y)) col = inE(x, y, 20, 6, 15, 3.6) ? (inE(x, y, 20, 6, 9.5, 2.2) && !inE(x, y, 20, 6, 8, 1.4) ? '#c89860' : inE(x, y, 20, 6, 3, 0.8) ? '#c89860' : '#ecd298') : '#b07c44';
+    else col = (x % 6 === 3) ? '#7e5028' : '#a06c38';
+    x2.fillStyle = col; x2.fillRect(x, y, 1, 1);
+  }
+  return (stumpURL = c.toDataURL());
+}
 function finishGame(list) {
   state.playing = false; $('#hudBtns').hidden = true; $('#ticker').hidden = true; bannerHold = 0; setBanner(''); updateLicense();
   const win = state.pick === 'first' ? list[0] : list[list.length - 1];
@@ -1101,6 +1146,8 @@ function finishGame(list) {
   $('#winTag').textContent = state.pick === 'first' ? '1등 당첨!' : '꼴등 당첨!';
   $('#winImg').src = win.img; $('#winImg').alt = win.name;
   $('#winRank').textContent = String(win.rank);
+  const px = state.tab === 'race' && state.chars === 'pokemon';
+  $('#winRank').classList.toggle('pixel', px); $('#winRank').style.backgroundImage = px ? `url(${pixelStump()})` : '';
   $('#winName').textContent = win.name;
   $('#rankList').innerHTML = '';
   for (const it of list) {

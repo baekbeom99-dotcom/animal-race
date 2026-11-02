@@ -85,20 +85,21 @@ const Poke = {
     for (const n of STATE_ANIM[state] || STATE_ANIM.idle) if (A[n]) return A[n];
     return A.Walk;
   },
-  // 이 포켓몬을 키 s로 그릴 때의 배율(걷기 그림의 실제 키 기준, 진화 단계만큼 커짐)
-  // 이 포켓몬을 키 s 자리에 그릴 때의 배율. 걷기 그림의 실제 키와 너비의 기하평균을 같게 맞춰
-  // 키 큰 종과 옆으로 넓은 종이 비슷한 크기로 보이게 함. 진화 단계만큼 커짐
-  scale(id, s) { const sp = species[id], w = sp.anims.Walk; return s * BASE_SIZE * STAGE_SIZE[sp.stage - 1] / Math.sqrt(w.visW * w.visH); },
-  height(id, s) { return species[id].anims.Walk.visH * this.scale(id, s); },
-  width(id, s) { return species[id].anims.Walk.visW * this.scale(id, s); },
+  // 그림 배율. 크기는 걷기 그림의 실제 키와 너비의 기하평균으로 재서, 키 큰 종과 옆으로 넓은 종이 비슷해 보이게 함
+  //   gm을 주면: 그 크기(픽셀)로 그림 (경주 화면: 레인 너비에 맞춘 크기)
+  //   gm이 없으면: 키 s 자리에 맞춰, 진화 단계만큼 크게 (선택 화면·결과 화면)
+  size(id) { const w = species[id].anims.Walk; return Math.sqrt(w.visW * w.visH); },
+  scale(id, s, gm) { return gm ? gm / this.size(id) : s * BASE_SIZE * STAGE_SIZE[species[id].stage - 1] / this.size(id); },
+  height(id, s, gm) { return species[id].anims.Walk.visH * this.scale(id, s, gm); },
+  width(id, s, gm) { return species[id].anims.Walk.visW * this.scale(id, s, gm); },
   frameOf(a, t) {
     let tick = Math.floor(t * 60) % a.total;
     for (let i = 0; i < a.dur.length; i++) { tick -= a.dur[i]; if (tick < 0) return i; }
     return 0;
   },
   // 한 프레임 그리기. white = 흰 실루엣
-  blit(id, state, x, y, s, t, alpha = 1, white = false) {
-    const g = ctx(), a = this.anim(id, state), k = this.scale(id, s), f = this.frameOf(a, t);
+  blit(id, state, x, y, s, t, alpha = 1, white = false, gm) {
+    const g = ctx(), a = this.anim(id, state), k = this.scale(id, s, gm), f = this.frameOf(a, t);
     const w = a.fw * k, h = a.fh * k, dx = x - a.cx * k, dy = y - (a.fb[f] || a.bottom) * k;
     g.save(); g.imageSmoothingEnabled = false; g.globalAlpha = alpha;
     if (white) g.drawImage(silhouette(a, f), dx, dy, w, h);
@@ -106,23 +107,23 @@ const Poke = {
     g.restore();
   },
   draw(id, x, y, s, st = {}) {
-    const g = ctx(), state = st.state || 'idle', t = st.t || 0;
+    const g = ctx(), state = st.state || 'idle', t = st.t || 0, gm = st.gm;
     // 그림자
-    const sw = Math.min(s * 0.45, species[id].anims.Walk.visW * this.scale(id, s) * 0.55);
+    const sw = gm ? this.width(id, s, gm) * 0.5 : Math.min(s * 0.45, this.width(id, s) * 0.55);
     g.save(); g.fillStyle = 'rgba(60,30,10,.2)'; g.beginPath(); g.ellipse(x, y, sw, sw * 0.28, 0, 0, Math.PI * 2); g.fill(); g.restore();
     if (state === 'evolve' && st.evolve) return this.drawEvolve(x, y, s, t, st.evolve);
     let yy = y;
     if (state === 'happy') yy -= Math.abs(Math.sin(t * 6)) * s * 0.12;
-    this.blit(id, state, x, yy, s, t);
-    const top = y - this.height(id, s) - s * 0.1;
+    this.blit(id, state, x, yy, s, t, 1, false, gm);
+    const top = y - this.height(id, s, gm) - s * 0.1;
     if (state === 'sleep') { g.save(); g.fillStyle = '#3f6fd8'; g.font = `${s * 0.22}px Jua, sans-serif`; g.textAlign = 'left'; const z = (t * 0.6) % 1; g.globalAlpha = 1 - z; g.fillText('Z', x + s * 0.3, top - z * s * 0.3); g.restore(); }
     if (state === 'trip') for (let i = 0; i < 3; i++) { const a = t * 4 + i * 2.1; Chars.star(x + Math.cos(a) * s * 0.3, top + s * 0.1 + Math.sin(a) * s * 0.08, s * 0.06, '#ffd21a'); }
     if (state === 'boost') { g.save(); g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = Math.max(2, s * 0.03); for (let i = -2; i <= 2; i++) { const lx = x + i * s * 0.11, l = s * (0.25 + ((t * 5 + i * 1.3) % 1) * 0.3); g.beginPath(); g.moveTo(lx, top); g.lineTo(lx, top - l); g.stroke(); } g.restore(); }
   },
   // 진화 이펙트: 빛 → 흰 실루엣이 옛 모습/새 모습으로 점점 빠르게 바뀜 → 번쩍 + 빛 고리와 별
   drawEvolve(x, y, s, t, ev) {
-    const g = ctx(), u = Math.min(1, Math.max(0, ev.u)), from = ev.from, to = ev.to;
-    const h = Math.max(this.height(from, s), this.height(to, s)), cy = y - h * 0.5;
+    const g = ctx(), u = Math.min(1, Math.max(0, ev.u)), from = ev.from, to = ev.to, gf = ev.gmFrom, gt = ev.gmTo;
+    const h = Math.max(this.height(from, s, gf), this.height(to, s, gt)), cy = y - h * 0.5;
     // 뒤쪽 빛
     const glow = g.createRadialGradient(x, cy, 0, x, cy, h * (0.9 + u * 0.6));
     glow.addColorStop(0, `rgba(255,255,220,${0.55 + u * 0.35})`); glow.addColorStop(0.5, `rgba(140,220,255,${0.25 + u * 0.2})`); glow.addColorStop(1, 'rgba(140,220,255,0)');
@@ -135,11 +136,11 @@ const Poke = {
     if (u < 0.78) {
       // 바뀌는 간격: 0.32초 → 0.04초
       const v = u / 0.78, period = 0.32 - 0.28 * v, showNew = Math.floor(t / period) % 2 === 1;
-      this.blit(showNew ? to : from, 'idle', x, y, s, t, 1, true);
+      this.blit(showNew ? to : from, 'idle', x, y, s, t, 1, true, showNew ? gt : gf);
     } else {
       const w = (u - 0.78) / 0.22;
-      this.blit(to, 'idle', x, y, s, t);
-      this.blit(to, 'idle', x, y, s, t, 1 - w, true);
+      this.blit(to, 'idle', x, y, s, t, 1, false, gt);
+      this.blit(to, 'idle', x, y, s, t, 1 - w, true, gt);
       // 번쩍이는 빛 고리
       g.save(); g.strokeStyle = `rgba(255,255,255,${1 - w})`; g.lineWidth = s * 0.08 * (1 - w) + 1;
       g.beginPath(); g.arc(x, cy, h * (0.4 + w * 1.4), 0, Math.PI * 2); g.stroke(); g.restore();
