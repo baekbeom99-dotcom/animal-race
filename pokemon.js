@@ -13,7 +13,9 @@
  */
 (() => {
 'use strict';
-const DATA_URL = 'pokemon-data.js';
+// 데이터를 새로 만들면 DATA_VERSION을 바꿔야 브라우저가 예전 파일(캐시)을 쓰지 않음
+const DATA_VERSION = 'xbr2-1';
+const DATA_URL = 'pokemon-data.js?v=' + DATA_VERSION;
 // 진화 단계별 크기 배율 (1단계 / 2단계 / 3단계)
 const STAGE_SIZE = [1, 1.2, 1.4];
 // 기본 크기: 동물 캐릭터 키 대비 (0.82의 70%)

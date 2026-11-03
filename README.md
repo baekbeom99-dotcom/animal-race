@@ -12,7 +12,11 @@
 동물 달리기 탭 오른쪽 위 **포켓몬 모드 ON/OFF** 버튼으로 켭니다. 1세대 진화 1단계 포켓몬 30종 가운데 참가자 수만큼 무작위로 뽑혀 달리고, 경주 중 진화합니다(진화 시간을 포함한 평균 속도는 모두 같음).
 
 - 스프라이트: [PMD Sprite Repository (SpriteCollab)](https://sprites.pmdcollab.org/), [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). 제작자 목록은 화면 하단 '제작자 보기'에 있습니다.
-- `pokemon-data.js`는 `python tools/build_pokemon.py <SpriteCollab 폴더> 1 73`으로 만듭니다.
+- `pokemon-data.js` 만들기:
+  1. `python tools/build_pokemon.py <SpriteCollab 폴더> 1 73` (원본 스프라이트 묶기)
+  2. `node tools/upscale_pokemon.js` (아래쪽 방향 줄만 남기고 2xBR로 2배 해상도)
+  3. 데이터를 새로 만들면 `pokemon.js`의 `DATA_VERSION`(과 `src.html`의 `pokemon.js?v=`)을 바꿔 브라우저 캐시를 피합니다.
+- `tools/upscale-compare.html`: 확대 방법(원본·Scale2x·MMPX·2xBR) 비교용 페이지. 원본 데이터(1단계만 한 상태)에서 열어야 제대로 비교됩니다.
 
 ## 수정 방법
 

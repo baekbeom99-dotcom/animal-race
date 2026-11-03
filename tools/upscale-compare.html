@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>스프라이트 2배 확대 비교</title>
+<style>
+/* 비교용 도구 페이지: 포켓몬 스프라이트를 2배로 키우는 방법별 결과를 나란히 보여 줌 (앱에는 포함 안 함) */
+:root{--bg:#f4f1e6;--ink:#28324a;--line:#d8cfb4;--card:#fffdf6;--accent:#c2242c}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,'Malgun Gothic',sans-serif}
+main{padding:20px 16px;max-width:1400px;margin:0 auto}
+h1{font-size:22px;margin:0 0 4px}
+p.sub{margin:0 0 16px;color:#5b6478;font-size:14px;line-height:1.6}
+.ctrl{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px;font-size:14px}
+.ctrl label{display:inline-flex;gap:6px;align-items:center}
+.wrap{overflow-x:auto}
+table{border-collapse:separate;border-spacing:8px;min-width:900px}
+th{font-size:14px;text-align:center;padding:6px 4px;font-weight:600}
+th small{display:block;font-weight:400;color:#6b7386;font-size:12px;margin-top:2px}
+td.name{font-weight:600;font-size:14px;white-space:nowrap;padding-right:6px}
+td.cell{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center;vertical-align:middle}
+td.cell canvas{image-rendering:pixelated;display:inline-block;margin:2px;background:repeating-conic-gradient(#efe9d6 0 25%,#fbf8ee 0 50%) 0 0/16px 16px}
+.err{color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+  <h1>스프라이트 2배 확대 비교</h1>
+  <p class="sub">각 칸은 원본 스프라이트를 <b>2배 해상도</b>로 만든 결과를, 차이가 잘 보이도록 다시 정수배로 크게 보여 줍니다(부드럽게 처리 안 함).
+    원본 칸은 그냥 2배로 늘린 것(최근접)이라 지금 앱 화면과 같습니다. 스프라이트: PMD Sprite Repository (SpriteCollab), CC BY-NC 4.0.</p>
+  <div class="ctrl">
+    <label for="zoom">보기 배율 <select id="zoom"><option>2</option><option selected>3</option><option>4</option></select></label>
+    <label for="anim">동작 <select id="anim"><option value="Walk" selected>걷기</option><option value="Idle">서 있기</option></select></label>
+    <label for="frame">프레임 <input id="frame" type="number" min="0" value="0" style="width:56px"></label>
+  </div>
+  <div class="wrap"><table id="tbl"></table></div>
+  <p class="err" id="err" hidden></p>
+</main>
+<script src="../pokemon-data.js"></script>
+<script>
+(() => {
+'use strict';
+const PICK = [25, 3, 6, 54, 65]; // 피카츄, 이상해꽃, 리자몽, 고라파덕, 후딘
+const METHODS = [
+  ['원본', '그냥 2배 (최근접)', nearest2x],
+  ['Scale2x', '모서리만 다듬음 · 원래 색만', scale2x],
+  ['MMPX', '스프라이트용 · 원래 색만', mmpx],
+  ['2xBR', 'xBR 계열 · 부드럽게, 중간색 생김', xbr2x],
+];
+
+/* ---------- 공통 ---------- */
+// 픽셀을 32비트 정수(ABGR, 리틀엔디언)로 다룸. 완전 투명은 모두 0으로 맞춰 비교가 쉽게
+function toU32(img) {
+  const u = new Uint32Array(img.data.buffer.slice(0));
+  for (let i = 0; i < u.length; i++) if ((u[i] >>> 24) < 128) u[i] = 0; else u[i] |= 0xff000000;
+  return u;
+}
+function fromU32(u, w, h) { return new ImageData(new Uint8ClampedArray(u.buffer), w, h); }
+function sampler(u, w, h) { return (x, y) => (x < 0 || y < 0 || x >= w || y >= h) ? 0 : u[y * w + x]; }
+
+function nearest2x(u, w, h) {
+  const o = new Uint32Array(w * h * 4), W = w * 2;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const c = u[y * w + x], i = 2 * y * W + 2 * x; o[i] = o[i + 1] = o[i + W] = o[i + W + 1] = c; }
+  return o;
+}
+
+/* ---------- Scale2x (EPX) ---------- */
+function scale2x(u, w, h) {
+  const s = sampler(u, w, h), o = new Uint32Array(w * h * 4), W = w * 2;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const P = s(x, y), A = s(x, y - 1), B = s(x + 1, y), C = s(x - 1, y), D = s(x, y + 1);
+    let e0 = P, e1 = P, e2 = P, e3 = P;
+    if (C === A && C !== D && A !== B) e0 = A;
+    if (A === B && A !== C && B !== D) e1 = B;
+    if (D === C && D !== B && C !== A) e2 = C;
+    if (B === D && B !== A && D !== C) e3 = D;
+    const i = 2 * y * W + 2 * x; o[i] = e0; o[i + 1] = e1; o[i + W] = e2; o[i + W + 1] = e3;
+  }
+  return o;
+}
+
+/* ---------- MMPX (McGuire & Gagiu 2021, MIT) ---------- */
+function mmpx(u, w, h) {
+  const s = sampler(u, w, h), o = new Uint32Array(w * h * 4), W = w * 2;
+  const luma = c => (((c >>> 16) & 255) + ((c >>> 8) & 255) + (c & 255) + 1) * (256 - (c >>> 24));
+  const eq3 = (b, a0, a1, a2) => b === a0 && b === a1 && b === a2;
+  const eq4 = (b, a0, a1, a2, a3) => b === a0 && b === a1 && b === a2 && b === a3;
+  const any3 = (b, a0, a1, a2) => b === a0 || b === a1 || b === a2;
+  const none2 = (b, a0, a1) => b !== a0 && b !== a1;
+  const none4 = (b, a0, a1, a2, a3) => b !== a0 && b !== a1 && b !== a2 && b !== a3;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const A = s(x - 1, y - 1), B = s(x, y - 1), C = s(x + 1, y - 1), D = s(x - 1, y), E = s(x, y), F = s(x + 1, y), G = s(x - 1, y + 1), H = s(x, y + 1), I = s(x + 1, y + 1);
+    let J = E, K = E, L = E, M = E;
+    if (((A ^ E) | (B ^ E) | (C ^ E) | (D ^ E) | (F ^ E) | (G ^ E) | (H ^ E) | (I ^ E)) !== 0) {
+      const P = s(x, y - 2), S = s(x, y + 2), Q = s(x - 2, y), R = s(x + 2, y);
+      const Bl = luma(B), Dl = luma(D), El = luma(E), Fl = luma(F), Hl = luma(H);
+      // 1:1 기울기
+      if (D === B && D !== H && D !== F && (El >= Dl || E === A) && any3(E, A, C, G) && (El < Dl || A !== D || E !== P || E !== Q)) J = D;
+      if (B === F && B !== D && B !== H && (El >= Bl || E === C) && any3(E, A, C, I) && (El < Bl || C !== B || E !== P || E !== R)) K = B;
+      if (H === D && H !== F && H !== B && (El >= Hl || E === G) && any3(E, A, G, I) && (El < Hl || G !== H || E !== S || E !== Q)) L = H;
+      if (F === H && F !== B && F !== D && (El >= Fl || E === I) && any3(E, C, G, I) && (El < Fl || I !== H || E !== R || E !== S)) M = F;
+      // 교차점
+      if (E !== F && eq4(E, C, I, D, Q) && F === B && F === H && F !== s(x + 3, y)) K = M = F;
+      if (E !== D && eq4(E, A, G, F, R) && D === B && D === H && D !== s(x - 3, y)) J = L = D;
+      if (E !== H && eq4(E, G, I, B, P) && H === D && H === F && H !== s(x, y + 3)) L = M = H;
+      if (E !== B && eq4(E, A, C, H, S) && B === D && B === F && B !== s(x, y - 3)) J = K = B;
+      // 삼각형 끝
+      if (Bl < El && eq4(E, G, H, I, S) && none4(E, A, D, C, F)) J = K = B;
+      if (Hl < El && eq4(E, A, B, C, P) && none4(E, D, G, I, F)) L = M = H;
+      if (Fl < El && eq4(E, A, D, G, Q) && none4(E, B, C, I, H)) K = M = F;
+      if (Dl < El && eq4(E, C, F, I, R) && none4(E, B, A, G, H)) J = L = D;
+      // 2:1 기울기
+      if (H !== B) {
+        if (H !== A && H !== E && H !== C) {
+          if (eq3(H, G, F, R) && none2(H, D, s(x + 2, y - 1))) L = M;
+          if (eq3(H, I, D, Q) && none2(H, F, s(x - 2, y - 1))) M = L;
+        }
+        if (B !== I && B !== G && B !== E) {
+          if (eq3(B, A, F, R) && none2(B, D, s(x + 2, y + 1))) J = K;
+          if (eq3(B, C, D, Q) && none2(B, F, s(x - 2, y + 1))) K = J;
+        }
+      }
+      if (F !== D) {
+        if (D !== I && D !== E && D !== C) {
+          if (eq3(D, A, H, S) && none2(D, B, s(x + 1, y + 2))) J = L;
+          if (eq3(D, G, B, P) && none2(D, H, s(x + 1, y - 2))) L = J;
+        }
+        if (F !== E && F !== A && F !== G) {
+          if (eq3(F, C, H, S) && none2(F, B, s(x - 1, y + 2))) K = M;
+          if (eq3(F, I, B, P) && none2(F, H, s(x - 1, y - 2))) M = K;
+        }
+      }
+    }
+    const i = 2 * y * W + 2 * x; o[i] = J; o[i + 1] = K; o[i + W] = L; o[i + W + 1] = M;
+  }
+  return o;
+}
+
+/* ---------- 2xBR (Hyllian의 xBR 2배 규칙, 네 모서리에 회전 적용 · 반반 섞기) ---------- */
+function xbr2x(u, w, h) {
+  const s = sampler(u, w, h), o = new Uint32Array(w * h * 4), W = w * 2;
+  const yuv = c => { const a = c >>> 24, r = c & 255, g = (c >>> 8) & 255, b = (c >>> 16) & 255; return [0.299 * r + 0.587 * g + 0.114 * b, -0.169 * r - 0.331 * g + 0.5 * b, 0.5 * r - 0.419 * g - 0.081 * b, a]; };
+  const dist = (p, q) => { if (p === q) return 0; const a = yuv(p), b = yuv(q); return 48 * Math.abs(a[0] - b[0]) + 7 * Math.abs(a[1] - b[1]) + 6 * Math.abs(a[2] - b[2]) + 2 * Math.abs(a[3] - b[3]); };
+  const mix = (p, q) => { // 반반 섞기 (투명은 섞지 않고 색 쪽을 씀)
+    if ((p >>> 24) === 0) return q; if ((q >>> 24) === 0) return p;
+    const r = ((p & 255) + (q & 255)) >> 1, g = (((p >>> 8) & 255) + ((q >>> 8) & 255)) >> 1, b = (((p >>> 16) & 255) + ((q >>> 16) & 255)) >> 1;
+    return (0xff000000 | (b << 16) | (g << 8) | r) >>> 0;
+  };
+  // 오른쪽 아래 모서리 기준 이웃 위치. 90도씩 돌려 나머지 모서리에 씀
+  const OFF = { C: [1, -1], G: [-1, 1], I: [1, 1], F4: [2, 0], H5: [0, 2], H: [0, 1], F: [1, 0], D: [-1, 0], B: [0, -1], I5: [1, 2], I4: [2, 1] };
+  const rot = ([dx, dy], k) => { for (let i = 0; i < k; i++) [dx, dy] = [-dy, dx]; return [dx, dy]; };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const E = s(x, y), out = [E, E, E, E]; // 순서: 왼위, 오위, 왼아래, 오아래
+    for (let k = 0; k < 4; k++) {
+      const g = n => { const [dx, dy] = rot(OFF[n], k); return s(x + dx, y + dy); };
+      const C = g('C'), G = g('G'), I = g('I'), F4 = g('F4'), H5 = g('H5'), Hh = g('H'), F = g('F'), D = g('D'), B = g('B'), I5 = g('I5'), I4 = g('I4');
+      const e = dist(E, C) + dist(E, G) + dist(I, F4) + dist(I, H5) + 4 * dist(Hh, F);
+      const iw = dist(Hh, D) + dist(Hh, I5) + dist(F, I4) + dist(F, B) + 4 * dist(E, I);
+      if (e < iw) {
+        const pick = dist(E, F) <= dist(E, Hh) ? F : Hh;
+        const [cx, cy] = rot([1, 1], k), idx = (cy > 0 ? 2 : 0) + (cx > 0 ? 1 : 0);
+        out[idx] = mix(E, pick);
+      }
+    }
+    const i = 2 * y * W + 2 * x; o[i] = out[0]; o[i + 1] = out[1]; o[i + W] = out[2]; o[i + W + 1] = out[3];
+  }
+  return o;
+}
+
+/* ---------- 화면 ---------- */
+const imgs = {};
+function load(src) { return imgs[src] || (imgs[src] = new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = src; })); }
+async function frameData(id, anim, f) {
+  const a = window.POKEMON_DATA.species[id].anims[anim] || window.POKEMON_DATA.species[id].anims.Walk;
+  const im = await load(a.img), fi = f % a.frames;
+  const c = document.createElement('canvas'); c.width = a.fw + 2; c.height = a.fh + 2; // 둘레 투명 1칸
+  const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(im, fi * a.fw, 0, a.fw, a.fh, 1, 1, a.fw, a.fh);
+  return g.getImageData(0, 0, c.width, c.height);
+}
+function canvasOf(u, w, h, zoom) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').putImageData(fromU32(u, w, h), 0, 0);
+  c.style.width = w * zoom + 'px'; c.style.height = h * zoom + 'px'; return c;
+}
+async function render() {
+  const zoom = Number(document.getElementById('zoom').value), anim = document.getElementById('anim').value, f = Number(document.getElementById('frame').value) || 0;
+  const tbl = document.getElementById('tbl'); tbl.innerHTML = '';
+  const head = document.createElement('tr'); head.innerHTML = '<th></th>' + METHODS.map(([n, d]) => `<th>${n}<small>${d}</small></th>`).join(''); tbl.append(head);
+  for (const id of PICK) {
+    const sp = window.POKEMON_DATA.species[id], tr = document.createElement('tr');
+    const nm = document.createElement('td'); nm.className = 'name'; nm.textContent = sp.name; tr.append(nm);
+    const src = await frameData(id, anim, f), u = toU32(src);
+    for (const [, , fn] of METHODS) { const td = document.createElement('td'); td.className = 'cell'; td.append(canvasOf(fn(u, src.width, src.height), src.width * 2, src.height * 2, zoom)); tr.append(td); }
+    tbl.append(tr);
+  }
+}
+for (const id of ['zoom', 'anim', 'frame']) document.getElementById(id).addEventListener('change', render);
+if (!window.POKEMON_DATA) { const e = document.getElementById('err'); e.hidden = false; e.textContent = 'pokemon-data.js를 찾지 못했어요. 이 파일은 animal_race/tools 폴더에 있어야 합니다.'; }
+else render();
+window.__cmp = { scale2x, mmpx, xbr2x, nearest2x };
+})();
+</script>
+</body>
+</html>
